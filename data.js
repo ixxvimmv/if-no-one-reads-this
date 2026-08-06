@@ -570,28 +570,61 @@
       writeJSON(LS.views, []);
     },
 
-    /* ---- site settings (e.g. About page content) ---- */
+    /* ---- site settings (e.g. About page photo) ---- */
     getSettings() {
-      const DEFAULTS = {
+      const defaults = {
         aboutPhoto: "",
         aboutEyebrow: "About the writer",
         aboutHeading: "I write things down so I don't have to carry them alone.",
         aboutLede: "If No One Reads This started as a private folder of unfinished drafts and slowly, almost against my will, became a public one.",
         aboutContent:
-          "<p>I've kept some form of journal since year 2020, mostly out of necessity rather than discipline — I've always needed to write things down before I fully understood how I felt about them.</p><p>The name comes from the only way I've ever been able to write anything honest: by half-convincing myself no one would actually read it. If No One Reads This is what happened when I got tired of being the only reader of things I suspected other people might need too.</p><p class=\"pull-line\">\"I'm not trying to have the last word on anything. I'm just trying to say the true thing before I forget what it felt like.\"</p><p>What you'll find here is a mix: letters, personal reflections, journal entries kept mostly intact, a handful of poems, and short stories that are fiction in name only.</p><p>I don't publish on a schedule. I publish when something has finished the slow work of becoming a sentence instead of just a feeling. If you're here, I'm glad. There's no rush to any of this.</p>",
+          "<p>I've kept some form of journal since I was thirteen, mostly out of necessity rather than discipline — I've always needed to write things down before I fully understood how I felt about them.</p><p>The name comes from the only way I've ever been able to write anything honest: by half-convincing myself no one would actually read it. If No One Reads This is what happened when I got tired of being the only reader of things I suspected other people might need too.</p><blockquote>I'm not trying to have the last word on anything. I'm just trying to say the true thing before I forget what it felt like.</blockquote><p>What you'll find here is a mix: letters, personal reflections, journal entries kept mostly intact, a handful of poems, and short stories that are fiction in name only.</p><p>I don't publish on a schedule. I publish when something has finished the slow work of becoming a sentence instead of just a feeling. If you're here, I'm glad. There's no rush to any of this.</p>",
         aboutValues: [
           { title: "Slowness on purpose", description: "Nothing here is written to a content calendar. A piece is published when it's ready, not before." },
           { title: "Honesty over polish", description: "I'd rather a sentence be true and a little rough than smooth and slightly false." },
           { title: "Room for you in it", description: "The most personal writing is often the most shareable. I try to leave space for your own story inside mine." },
         ],
       };
-      return Object.assign({}, DEFAULTS, readJSON(LS.settings, {}));
+      return Object.assign({}, defaults, readJSON(LS.settings, {}));
     },
     saveSettings(partial) {
       const current = this.getSettings();
       const updated = Object.assign({}, current, partial);
       writeJSON(LS.settings, updated);
       return updated;
+    },
+
+    /* ---- backup / restore ----
+       Since content lives in this browser's localStorage, it's scoped to
+       whatever domain you're viewing the site from. Editing on a GitHub-hosted
+       preview and a Vercel deployment are two different origins with two
+       separate storage boxes — nothing syncs between them automatically.
+       Export on one, import on the other, to move content across. */
+    exportAll() {
+      return {
+        exportedAt: nowIso(),
+        version: 1,
+        posts: this.getAllPosts(),
+        categories: this.getCategories(),
+        tags: this.getTags(),
+        media: this.getMedia(),
+        settings: this.getSettings(),
+      };
+    },
+    importAll(data) {
+      if (!data || typeof data !== "object") {
+        return { ok: false, reason: "That file doesn't look like a valid backup." };
+      }
+      try {
+        if (Array.isArray(data.posts)) writeJSON(LS.posts, data.posts);
+        if (Array.isArray(data.categories)) writeJSON(LS.categories, data.categories);
+        if (Array.isArray(data.tags)) writeJSON(LS.tags, data.tags);
+        if (Array.isArray(data.media)) writeJSON(LS.media, data.media);
+        if (data.settings && typeof data.settings === "object") writeJSON(LS.settings, data.settings);
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, reason: "Import failed: " + e.message };
+      }
     },
 
     /* ---- helpers exposed for views ---- */
