@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Lora:ital,wght@0,400;0,500;0,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body class="admin-body">
@@ -180,6 +180,7 @@ function viewLogin(){
         <input class="field-input" type="password" id="login-pass" placeholder="Enter admin password" autocomplete="current-password">
       </div>
       <button class="btn" style="width:100%;justify-content:center;" id="login-btn">Sign in</button>
+      <p class="login-hint">Demo login: <strong>admin</strong> / <strong>admin123</strong><br>Stored only in this browser's localStorage — there is no real server-side auth here.</p>
     </div>
   </div>`;
 }
@@ -952,63 +953,61 @@ function wireAnalyticsAdmin(){
 }
 
 /* ===================================================================
-   SETTINGS VIEW (About page, credentials, etc.)
+   SETTINGS VIEW (About page photo, etc.)
 =================================================================== */
 function viewSettingsAdmin(){
   const settings = CMS.getSettings();
+  const values = settings.aboutValues || [];
   return `
   <div class="admin-topbar"><h1>Settings</h1></div>
 
-  <div class="admin-panel" style="max-width:520px;">
-    <h3>About page photo</h3>
-    <p class="field-hint" style="margin-bottom:16px;">Shown at the top of your public About page. Leave empty to use the default monogram instead.</p>
-    <div class="cover-picker" style="max-width:260px;">
-      ${settings.aboutPhoto
-        ? `<img class="cover-preview" id="about-photo-preview" src="${settings.aboutPhoto}" style="border-radius:50%;height:220px;">`
-        : `<div class="cover-preview-empty" id="about-photo-preview-empty" style="border-radius:50%;height:220px;">No photo set</div>`}
-      <input type="hidden" id="f-about-photo" value="${settings.aboutPhoto || ''}">
-      <div style="display:flex;gap:8px;">
-        <button type="button" class="btn ghost small" id="choose-about-photo-btn" style="flex:1;justify-content:center;">Choose photo</button>
-        ${settings.aboutPhoto ? `<button type="button" class="btn ghost small" id="remove-about-photo-btn" style="flex:1;justify-content:center;">Remove</button>` : ''}
-      </div>
-    </div>
-  </div>
+  <div class="admin-panel" style="max-width:700px;">
+    <h3>About page</h3>
+    <p class="field-hint" style="margin-bottom:16px;">Everything shown on your public About page — edit it here instead of in code.</p>
 
-  <div class="admin-panel" style="max-width:720px;">
-    <h3>About page content</h3>
-    <p class="field-hint" style="margin-bottom:16px;">Everything shown on your public About page, editable here instead of in code.</p>
+    <div class="field-group">
+      <label class="field-label">Photo</label>
+      <div class="cover-picker" style="max-width:220px;">
+        ${settings.aboutPhoto
+          ? `<img class="cover-preview" id="about-photo-preview" src="${settings.aboutPhoto}" style="border-radius:50%;height:190px;">`
+          : `<div class="cover-preview-empty" id="about-photo-preview-empty" style="border-radius:50%;height:190px;">No photo set</div>`}
+        <input type="hidden" id="f-about-photo" value="${settings.aboutPhoto || ''}">
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn ghost small" id="choose-about-photo-btn" style="flex:1;justify-content:center;">Choose photo</button>
+          ${settings.aboutPhoto ? `<button type="button" class="btn ghost small" id="remove-about-photo-btn" style="flex:1;justify-content:center;">Remove</button>` : ''}
+        </div>
+      </div>
+      <p class="field-hint">Leave empty to show the default monogram instead.</p>
+    </div>
 
     <div class="field-group">
       <label class="field-label" for="f-about-eyebrow">Eyebrow label</label>
-      <input class="field-input" id="f-about-eyebrow" value="${escapeHtml(settings.aboutEyebrow)}" placeholder="About the writer">
-    </div>
-    <div class="field-group">
-      <label class="field-label" for="f-about-heading">Heading</label>
-      <input class="field-input" id="f-about-heading" value="${escapeHtml(settings.aboutHeading)}" placeholder="A big opening line">
-    </div>
-    <div class="field-group">
-      <label class="field-label" for="f-about-lede">Intro line</label>
-      <textarea class="field-textarea" id="f-about-lede" placeholder="A sentence or two right under the heading">${escapeHtml(settings.aboutLede)}</textarea>
-    </div>
-    <div class="field-group">
-      <label class="field-label">Bio</label>
-      ${editorToolbarHtml('f-about-content')}
-      <div class="editor-surface" id="f-about-content" contenteditable="true" data-placeholder="Write your bio…">${settings.aboutContent || ''}</div>
-      <p class="field-hint">Tip: select a line and click "Blockquote" in the toolbar for a pulled-quote style line, like the one on the current page.</p>
+      <input class="field-input" id="f-about-eyebrow" value="${escapeHtml(settings.aboutEyebrow)}" placeholder="e.g. About the writer">
     </div>
 
-    <h4 style="margin:28px 0 14px;font-family:var(--sans);font-size:14px;color:var(--text-muted);">Values cards</h4>
-    <div id="about-values-fields">
-      ${(settings.aboutValues || []).map((v, i) => `
-        <div style="border:1px solid var(--line);padding:14px;border-radius:var(--radius);margin-bottom:12px;">
-          <div class="field-group">
-            <label class="field-label">Card ${i+1} title</label>
-            <input class="field-input about-value-title" value="${escapeHtml(v.title)}">
-          </div>
-          <div class="field-group" style="margin-bottom:0;">
-            <label class="field-label">Card ${i+1} description</label>
-            <textarea class="field-textarea about-value-desc">${escapeHtml(v.description)}</textarea>
-          </div>
+    <div class="field-group">
+      <label class="field-label" for="f-about-heading">Heading</label>
+      <input class="field-input" id="f-about-heading" value="${escapeHtml(settings.aboutHeading)}">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f-about-lede">Intro line</label>
+      <textarea class="field-textarea" id="f-about-lede" style="min-height:60px;">${escapeHtml(settings.aboutLede)}</textarea>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">Main content</label>
+      ${editorToolbarHtml('f-about-content')}
+      <div class="editor-surface" id="f-about-content" contenteditable="true" data-placeholder="Write your About page…" style="min-height:220px;">${settings.aboutContent || ''}</div>
+      <p class="field-hint">Use the blockquote button for a pulled-quote line, styled the same way it always has been.</p>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">Three highlight cards <span style="font-weight:400;color:var(--text-faint);">(optional — leave a title blank to hide that card)</span></label>
+      ${[0,1,2].map(i => `
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:10px;">
+          <input class="field-input" id="f-about-value-title-${i}" placeholder="Card title" value="${escapeHtml((values[i]||{}).title || '')}">
+          <input class="field-input" id="f-about-value-desc-${i}" placeholder="Card description" value="${escapeHtml((values[i]||{}).description || '')}">
         </div>`).join('')}
     </div>
 
@@ -1027,6 +1026,27 @@ function viewSettingsAdmin(){
       <input class="field-input" type="password" id="f-new-password" placeholder="Leave blank to keep current password">
     </div>
     <button class="btn" id="save-credentials-btn">Save credentials</button>
+  </div>
+
+  <div class="admin-panel" style="max-width:600px;">
+    <h3>Backup &amp; restore</h3>
+    <p class="field-hint" style="margin-bottom:16px;">
+      Your writings live in this browser's storage, scoped to whatever domain you're
+      viewing the site from. If you edit content on more than one URL (e.g. a
+      GitHub-hosted preview vs. your live Vercel deployment), nothing syncs between
+      them automatically — use this to move content from one to the other.
+    </p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn ghost" id="export-backup-btn">Export all content</button>
+      <button class="btn ghost" id="import-backup-btn">Import from backup file</button>
+      <input type="file" id="import-backup-file" accept="application/json" style="display:none;">
+    </div>
+    <p class="field-hint" style="margin-top:12px;">
+      Export downloads a single JSON file with every writing, category, tag, media item,
+      and About page setting. Importing on another domain <strong>overwrites</strong>
+      whatever's currently there on this browser — export a safety copy first if you're
+      not sure.
+    </p>
   </div>
   `;
 }
@@ -1049,29 +1069,23 @@ function wireSettingsAdmin(){
     });
   }
 
-  const aboutContentToolbar = document.querySelector('.editor-toolbar[data-for="f-about-content"]');
-  if (aboutContentToolbar) wireEditor('f-about-content', aboutContentToolbar);
+  wireEditor('f-about-content', document.querySelector('.editor-toolbar[data-for="f-about-content"]'));
 
-  const saveAboutBtn = document.getElementById('save-about-btn');
-  if (saveAboutBtn){
-    saveAboutBtn.addEventListener('click', () => {
-      const titles = document.querySelectorAll('.about-value-title');
-      const descs = document.querySelectorAll('.about-value-desc');
-      const aboutValues = Array.from(titles).map((t, i) => ({
-        title: t.value.trim(),
-        description: descs[i].value.trim(),
-      }));
-      CMS.saveSettings({
-        aboutEyebrow: document.getElementById('f-about-eyebrow').value.trim(),
-        aboutHeading: document.getElementById('f-about-heading').value.trim(),
-        aboutLede: document.getElementById('f-about-lede').value.trim(),
-        aboutContent: document.getElementById('f-about-content').innerHTML,
-        aboutValues,
-      });
-      toast('About page updated.');
-      render();
+  document.getElementById('save-about-btn').addEventListener('click', () => {
+    const aboutValues = [0,1,2].map(i => ({
+      title: document.getElementById(`f-about-value-title-${i}`).value.trim(),
+      description: document.getElementById(`f-about-value-desc-${i}`).value.trim(),
+    })).filter(v => v.title);
+    CMS.saveSettings({
+      aboutEyebrow: document.getElementById('f-about-eyebrow').value.trim(),
+      aboutHeading: document.getElementById('f-about-heading').value.trim(),
+      aboutLede: document.getElementById('f-about-lede').value.trim(),
+      aboutContent: document.getElementById('f-about-content').innerHTML,
+      aboutValues,
     });
-  }
+    toast('About page saved.');
+    render();
+  });
 
   document.getElementById('save-credentials-btn').addEventListener('click', () => {
     const newUser = document.getElementById('f-username').value.trim();
@@ -1081,6 +1095,47 @@ function wireSettingsAdmin(){
     if (newPass) CMS.changePassword(newPass);
     toast('Credentials updated.');
     render();
+  });
+
+  document.getElementById('export-backup-btn').addEventListener('click', () => {
+    const data = CMS.exportAll();
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url; a.download = `if-no-one-reads-this-backup-${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast('Backup downloaded.');
+  });
+
+  const importFileInput = document.getElementById('import-backup-file');
+  document.getElementById('import-backup-btn').addEventListener('click', () => importFileInput.click());
+  importFileInput.addEventListener('change', () => {
+    const file = importFileInput.files[0];
+    if (!file) return;
+    confirmAction(
+      `Import "${file.name}"? This will overwrite all writings, categories, tags, media, and About page settings currently stored in this browser.`,
+      () => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          let parsed;
+          try { parsed = JSON.parse(reader.result); }
+          catch (e) { toast('That file is not valid JSON.'); return; }
+          const result = CMS.importAll(parsed);
+          if (result.ok){
+            toast('Backup imported. Reloading…');
+            setTimeout(() => location.reload(), 900);
+          } else {
+            toast(result.reason || 'Import failed.');
+          }
+        };
+        reader.readAsText(file);
+      },
+      { confirmLabel: 'Import & overwrite' }
+    );
+    importFileInput.value = '';
   });
 }
 
