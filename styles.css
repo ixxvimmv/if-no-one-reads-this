@@ -459,7 +459,13 @@ ul{ margin:0; padding:0; list-style:none; }
   font-family: var(--sans); font-size:13.5px; padding: 10px 14px; border-radius: 20px; border:1px solid var(--line-strong);
   background: var(--surface); color: var(--text); appearance:none; cursor:pointer;
 }
-.tag-filter-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.tag-filter-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+.tag-filter-row .tag-extra{ display:none; }
+.tag-filter-row.expanded .tag-extra{ display:inline-flex; }
+.chip.tag-toggle{
+  border-style: dashed; color: var(--accent); font-weight:600;
+}
+.chip.tag-toggle:hover{ background: var(--accent-soft); }
 
 /* ============ STATUS BADGES ============ */
 .badge{ font-family: var(--sans); font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding:4px 10px; border-radius: 20px; font-weight:600; }
