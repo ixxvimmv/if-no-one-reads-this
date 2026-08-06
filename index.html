@@ -313,6 +313,7 @@ function viewAbout(){
 }
 
 const PAGE_SIZE = 6;
+const TAG_PREVIEW_COUNT = 10;
 function viewWritings(){
   const page = parseInt(currentQuery.page || '1', 10);
   const sort = currentQuery.sort || 'newest';
@@ -340,9 +341,10 @@ function viewWritings(){
         <button class="chip ${catFilter==='all'?'active':''}" data-filter="all">All</button>
         ${cats.map(c => `<button class="chip ${catFilter===c.slug?'active':''}" data-filter="${c.slug}">${c.name}</button>`).join('')}
       </div>
-      <div class="tag-filter-row" id="writings-tag-row">
+      <div class="tag-filter-row ${tagFilter && tags.findIndex(t=>t.slug===tagFilter) >= TAG_PREVIEW_COUNT ? 'expanded' : ''}" id="writings-tag-row">
         <button class="chip ${!tagFilter?'active':''}" data-tag="">All tags</button>
-        ${tags.map(t => `<button class="chip ${tagFilter===t.slug?'active':''}" data-tag="${t.slug}">#${t.name}</button>`).join('')}
+        ${tags.map((t,i) => `<button class="chip ${tagFilter===t.slug?'active':''} ${i>=TAG_PREVIEW_COUNT?'tag-extra':''}" data-tag="${t.slug}">#${t.name}</button>`).join('')}
+        ${tags.length > TAG_PREVIEW_COUNT ? `<button class="chip tag-toggle" id="tag-toggle-btn" type="button">Show all tags (${tags.length - TAG_PREVIEW_COUNT} more)</button>` : ''}
       </div>
       <div id="writings-list-wrap" style="margin-top:30px;">
         ${renderWritingsList(catFilter, tagFilter, q, sort, page)}
@@ -592,9 +594,17 @@ function wireDynamic(){
     document.querySelectorAll('#writings-filters .chip').forEach(chip => {
       chip.addEventListener('click', () => goWritings({ cat: chip.dataset.filter, page:'1' }));
     });
-    document.querySelectorAll('#writings-tag-row .chip').forEach(chip => {
+    document.querySelectorAll('#writings-tag-row .chip[data-tag]').forEach(chip => {
       chip.addEventListener('click', () => goWritings({ tag: chip.dataset.tag, page:'1' }));
     });
+    const tagToggleBtn = document.getElementById('tag-toggle-btn');
+    if (tagToggleBtn){
+      tagToggleBtn.addEventListener('click', () => {
+        const row = document.getElementById('writings-tag-row');
+        const expanded = row.classList.toggle('expanded');
+        tagToggleBtn.textContent = expanded ? 'Show fewer tags' : `Show all tags (${document.querySelectorAll('#writings-tag-row .tag-extra').length} more)`;
+      });
+    }
     document.getElementById('writings-list-wrap').addEventListener('click', e => {
       const btn = e.target.closest('button[data-page]');
       if (btn && !btn.disabled) goWritings({ page: btn.dataset.page });
