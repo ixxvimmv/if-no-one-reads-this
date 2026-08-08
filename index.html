@@ -479,7 +479,7 @@ function viewPost(params){
         <div class="ribbon-track"><div class="ribbon-fill" id="ribbon-fill"></div></div>
       </div>
       <div>
-        <div class="article-body" id="article-body">${post.content}</div>
+        <div class="article-body" id="article-body" style="font-size:${post.fontSize || 19}px;">${post.content}</div>
 
         ${post.footer ? `<div class="post-footer" data-reveal>${post.footer}</div>` : ''}
 
@@ -843,7 +843,17 @@ window.addEventListener('hashchange', render);
 window.addEventListener('load', () => {
   render();
   setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 350);
+  trySyncPull();
 });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') trySyncPull();
+});
+function trySyncPull(){
+  if (!CMS.isSyncTargetConfigured || !CMS.isSyncTargetConfigured()) return;
+  CMS.pullFromGitHubPublic().then(res => {
+    if (res.ok && res.changed) render();
+  }).catch(() => {});
+}
 render();
 </script>
 </body>
