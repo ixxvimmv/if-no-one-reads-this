@@ -218,7 +218,7 @@ function updateActiveNav(hash){
 =================================================================== */
 function viewHome(){
   const posts = CMS.getPublishedPosts();
-  const featured = posts.filter(p => p.featured);
+  const featured = CMS.getFeaturedPostsOrdered();
   const recent = sortedByDateDesc(posts).slice(0,3);
   const spot = featured[Math.floor(Math.random()*featured.length)] || posts[0];
   const cats = CMS.getCategories();
