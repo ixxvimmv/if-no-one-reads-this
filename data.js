@@ -10,7 +10,31 @@
    To turn this into a real product, this file is the seam: swap the
    body of every CMS.* function for a fetch() call to a real API and
    nothing in index.html or admin.html needs to change.
+
+   ---------------------------------------------------------------------
+   CROSS-DEVICE SYNC (GitHub as a lightweight shared "database")
+   ---------------------------------------------------------------------
+   Because there's still no real backend here, cross-device sync works by
+   reading/writing a JSON file in a GitHub repo — the same repo this site
+   is deployed from is the natural choice. Fill in GITHUB_SYNC below with
+   a PUBLIC repo (public is required: anonymous visitors' browsers read
+   this file directly, with no login and no secret involved) and commit
+   it, and every device that loads the site will pull the latest content
+   from that file on load, regardless of what's cached locally.
+
+   Publishing (writing back to GitHub) requires a Personal Access Token,
+   which is NEVER put here in the source code — it's entered once into
+   the admin dashboard's Settings page and stays only in that browser's
+   localStorage. This file only ever performs anonymous, secret-free
+   reads on the public site; only the admin-side push function uses the
+   token, and it never ships to visitors.
 ===================================================================== */
+const GITHUB_SYNC = {
+  owner: "",   // e.g. "yourusername" — your GitHub username or org
+  repo: "",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
+  branch: "main",
+  path: "content.json",
+};
 (function (global) {
   const LS = {
     posts: "inrt_posts",
@@ -22,6 +46,7 @@
     seeded: "inrt_seeded_v1",
     views: "inrt_views_log",
     settings: "inrt_settings",
+    githubSync: "inrt_github_sync",
   };
   const MAX_VIEW_LOG = 5000;
   const SESSION_KEY = "inrt_admin_session";
@@ -624,6 +649,114 @@
         return { ok: true };
       } catch (e) {
         return { ok: false, reason: "Import failed: " + e.message };
+      }
+    },
+
+    /* ---- cross-device sync (GitHub) ----
+       See the big comment at the top of this file for the full picture.
+       getSyncTarget() reads the non-secret owner/repo/branch/path baked
+       into the deployed code. getSyncConfig()/saveSyncConfig() manage the
+       secret token, which lives ONLY in this browser's localStorage and
+       is used solely by pushToGitHub() (admin-side). pullFromGitHubPublic()
+       never sends or needs a token — it's a plain anonymous GET, safe to
+       run on the public site for any visitor. */
+    getSyncTarget() {
+      return GITHUB_SYNC;
+    },
+    isSyncTargetConfigured() {
+      return !!(GITHUB_SYNC.owner && GITHUB_SYNC.repo);
+    },
+    getSyncConfig() {
+      return readJSON(LS.githubSync, { token: "", lastPush: "", lastPull: "" });
+    },
+    saveSyncConfig(partial) {
+      const current = this.getSyncConfig();
+      const updated = Object.assign({}, current, partial);
+      writeJSON(LS.githubSync, updated);
+      return updated;
+    },
+    getSyncPayload() {
+      return {
+        exportedAt: nowIso(),
+        posts: this.getAllPosts(),
+        categories: this.getCategories(),
+        tags: this.getTags(),
+        settings: this.getSettings(),
+      };
+    },
+    async pullFromGitHubPublic() {
+      if (!this.isSyncTargetConfigured()) return { ok: false, reason: "not-configured" };
+      const cfg = GITHUB_SYNC;
+      const url = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`;
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          return { ok: false, reason: `No published content found yet (status ${res.status}).` };
+        }
+        const data = await res.json();
+        let changed = false;
+        const currentPosts = JSON.stringify(this.getAllPosts());
+        if (Array.isArray(data.posts)) {
+          writeJSON(LS.posts, data.posts);
+          if (JSON.stringify(data.posts) !== currentPosts) changed = true;
+        }
+        if (Array.isArray(data.categories)) writeJSON(LS.categories, data.categories);
+        if (Array.isArray(data.tags)) writeJSON(LS.tags, data.tags);
+        if (data.settings && typeof data.settings === "object") writeJSON(LS.settings, data.settings);
+        writeJSON(LS.seeded, true); // never let the local demo-seed overwrite real pulled content
+        this.saveSyncConfig({ lastPull: nowIso() });
+        return { ok: true, changed };
+      } catch (e) {
+        return { ok: false, reason: "Network error while pulling: " + e.message };
+      }
+    },
+    async pushToGitHub() {
+      if (!this.isSyncTargetConfigured()) {
+        return { ok: false, reason: "GitHub sync target isn't set yet — fill in GITHUB_SYNC in data.js and redeploy." };
+      }
+      const cfg = GITHUB_SYNC;
+      const { token } = this.getSyncConfig();
+      if (!token) {
+        return { ok: false, reason: "Enter a GitHub personal access token in Settings first." };
+      }
+      const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
+      const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
+      let sha;
+      try {
+        const getRes = await fetch(`${apiUrl}?ref=${cfg.branch}`, { headers });
+        if (getRes.ok) {
+          const info = await getRes.json();
+          sha = info.sha;
+        } else if (getRes.status !== 404) {
+          const err = await getRes.json().catch(() => ({}));
+          return { ok: false, reason: err.message || `GitHub API error ${getRes.status} while checking the file.` };
+        }
+      } catch (e) {
+        return { ok: false, reason: "Network error while checking the file: " + e.message };
+      }
+      const payload = this.getSyncPayload();
+      const jsonStr = JSON.stringify(payload, null, 2);
+      const contentB64 = btoa(unescape(encodeURIComponent(jsonStr)));
+      const body = {
+        message: "Update writings from admin dashboard",
+        content: contentB64,
+        branch: cfg.branch,
+      };
+      if (sha) body.sha = sha;
+      try {
+        const putRes = await fetch(apiUrl, {
+          method: "PUT",
+          headers: Object.assign({ "Content-Type": "application/json" }, headers),
+          body: JSON.stringify(body),
+        });
+        if (!putRes.ok) {
+          const err = await putRes.json().catch(() => ({}));
+          return { ok: false, reason: err.message || `GitHub API error ${putRes.status}.` };
+        }
+        this.saveSyncConfig({ lastPush: nowIso() });
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, reason: "Network error while pushing: " + e.message };
       }
     },
 
