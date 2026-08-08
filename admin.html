@@ -38,6 +38,18 @@ function toast(msg){
   clearTimeout(window.__toastT);
   window.__toastT = setTimeout(() => el.classList.remove('show'), 2600);
 }
+/* Fire-and-forget push after any content change, if GitHub sync is configured
+   and a token has been entered on this device. Never blocks the UI — the local
+   save has already succeeded either way; this just also shares it. */
+function maybeSyncPush(){
+  if (!CMS.isSyncTargetConfigured()) return;
+  const cfg = CMS.getSyncConfig();
+  if (!cfg.token) return;
+  CMS.pushToGitHub().then(res => {
+    if (res.ok) toast('Saved, and synced to GitHub for other devices.');
+    else toast('Saved locally, but GitHub sync failed: ' + res.reason);
+  });
+}
 function computeStatus(post){
   if (post.status === 'archived') return 'archived';
   if (post.status === 'draft') return 'draft';
@@ -180,6 +192,7 @@ function viewLogin(){
         <input class="field-input" type="password" id="login-pass" placeholder="Enter admin password" autocomplete="current-password">
       </div>
       <button class="btn" style="width:100%;justify-content:center;" id="login-btn">Sign in</button>
+      <p class="login-hint">Demo login: <strong>admin</strong> / <strong>admin123</strong><br>Stored only in this browser's localStorage — there is no real server-side auth here.</p>
     </div>
   </div>`;
 }
@@ -301,14 +314,15 @@ function wireWritingsList(){
     const del = e.target.closest('[data-del]');
     const archive = e.target.closest('[data-archive]');
     const restore = e.target.closest('[data-restore]');
-    if (dup){ CMS.duplicatePost(dup.dataset.dup); toast('Writing duplicated as a draft.'); render(); }
-    if (archive){ CMS.archivePost(archive.dataset.archive); toast('Writing archived.'); render(); }
-    if (restore){ CMS.restorePost(restore.dataset.restore); toast('Writing restored.'); render(); }
+    if (dup){ CMS.duplicatePost(dup.dataset.dup); toast('Writing duplicated as a draft.'); render(); maybeSyncPush(); }
+    if (archive){ CMS.archivePost(archive.dataset.archive); toast('Writing archived.'); render(); maybeSyncPush(); }
+    if (restore){ CMS.restorePost(restore.dataset.restore); toast('Writing restored.'); render(); maybeSyncPush(); }
     if (del){
       confirmAction('This will permanently delete this writing.', () => {
         CMS.deletePost(del.dataset.del);
         toast('Writing deleted.');
         render();
+        maybeSyncPush();
       });
     }
   });
@@ -385,6 +399,17 @@ function wireEditor(surfaceId, toolbarEl){
           surface.focus();
           document.execCommand('insertImage', false, dataUrl);
         });
+        return;
+      }
+      if (cmd === 'formatBlock' && btn.dataset.arg === 'BLOCKQUOTE'){
+        const sel = window.getSelection();
+        let node = sel.rangeCount ? sel.getRangeAt(0).startContainer : null;
+        let inQuote = false;
+        while (node && node !== surface){
+          if (node.nodeType === 1 && node.tagName === 'BLOCKQUOTE'){ inQuote = true; break; }
+          node = node.parentNode;
+        }
+        document.execCommand('formatBlock', false, inQuote ? 'P' : 'BLOCKQUOTE');
         return;
       }
       document.execCommand(cmd, false, btn.dataset.arg || undefined);
@@ -483,7 +508,7 @@ function viewWritingEditor(params){
   if (isEdit && !post) return `<div class="admin-empty">Writing not found. <a href="#/writings">Back to writings</a></div>`;
   const cats = CMS.getCategories();
   const tags = CMS.getTags();
-  const p = post || { title:'', subtitle:'', content:'', footer:'', category: cats[0]?.slug || '', tags:[], coverImage:'', status:'draft', featured:false, seoTitle:'', metaDescription:'', slug:'', publishDate:'' };
+  const p = post || { title:'', subtitle:'', content:'', footer:'', category: cats[0]?.slug || '', tags:[], coverImage:'', status:'draft', featured:false, seoTitle:'', metaDescription:'', slug:'', publishDate:'', fontSize:19 };
 
   const isArchived = isEdit && computeStatus(p) === 'archived';
 
@@ -515,7 +540,15 @@ function viewWritingEditor(params){
         <div class="field-group">
           <label class="field-label">Content</label>
           ${editorToolbarHtml('f-content')}
-          <div class="editor-surface" id="f-content" contenteditable="true" data-placeholder="Start writing…">${p.content || ''}</div>
+          <div class="font-size-row">
+            <span class="font-size-label">Content text size</span>
+            <button type="button" class="btn-icon" id="font-size-dec" aria-label="Decrease font size" title="Decrease font size">A−</button>
+            <span class="font-size-value" id="font-size-value">${p.fontSize || 19}px</span>
+            <button type="button" class="btn-icon" id="font-size-inc" aria-label="Increase font size" title="Increase font size">A+</button>
+            <input type="hidden" id="f-font-size" value="${p.fontSize || 19}">
+          </div>
+          <div class="editor-surface" id="f-content" contenteditable="true" data-placeholder="Start writing…" style="font-size:${p.fontSize || 19}px;">${p.content || ''}</div>
+          <p class="field-hint">This sets the reading size of this writing's content on the published page — it won't affect other writings.</p>
         </div>
       </div>
 
@@ -552,7 +585,10 @@ function viewWritingEditor(params){
           <div class="cover-picker">
             ${p.coverImage ? `<img class="cover-preview" id="cover-preview" src="${p.coverImage}">` : `<div class="cover-preview-empty" id="cover-preview-empty">No cover image</div>`}
             <input type="hidden" id="f-cover" value="${escapeHtml(p.coverImage)}">
-            <button type="button" class="btn ghost small" id="choose-cover-btn" style="width:100%;justify-content:center;">Choose image</button>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="btn ghost small" id="choose-cover-btn" style="flex:1;justify-content:center;">Choose image</button>
+              <button type="button" class="btn ghost small" id="remove-cover-btn" style="flex:1;justify-content:center;${p.coverImage ? '' : 'display:none;'}">Remove cover image</button>
+            </div>
           </div>
         </div>
         <div class="field-group">
@@ -594,6 +630,7 @@ function wireWritingEditor(params){
         toast('Writing archived.');
         location.hash = '/writings/edit/' + params.id;
         render();
+        maybeSyncPush();
       }, { confirmLabel: 'Archive', soft: true });
     });
   }
@@ -604,6 +641,7 @@ function wireWritingEditor(params){
       toast('Writing restored.');
       location.hash = '/writings/edit/' + params.id;
       render();
+      maybeSyncPush();
     });
   }
 
@@ -619,8 +657,44 @@ function wireWritingEditor(params){
       const img = document.createElement('img');
       img.className = 'cover-preview'; img.id = 'cover-preview'; img.src = dataUrl;
       existing.replaceWith(img);
+      const removeBtn = document.getElementById('remove-cover-btn');
+      if (removeBtn) removeBtn.style.display = '';
     });
   });
+
+  const removeCoverBtn = document.getElementById('remove-cover-btn');
+  if (removeCoverBtn){
+    removeCoverBtn.addEventListener('click', () => {
+      confirmAction(
+        'Remove the cover image from this writing? This will take effect once you save or publish.',
+        () => {
+          document.getElementById('f-cover').value = '';
+          const existing = document.getElementById('cover-preview') || document.getElementById('cover-preview-empty');
+          const placeholder = document.createElement('div');
+          placeholder.className = 'cover-preview-empty'; placeholder.id = 'cover-preview-empty'; placeholder.textContent = 'No cover image';
+          existing.replaceWith(placeholder);
+          removeCoverBtn.style.display = 'none';
+          toast('Cover image removed — save or publish to apply.');
+        },
+        { confirmLabel: 'Remove image', soft: true }
+      );
+    });
+  }
+
+  const fontSizeInput = document.getElementById('f-font-size');
+  const fontSizeValue = document.getElementById('font-size-value');
+  const contentSurfaceEl = document.getElementById('f-content');
+  const MIN_FONT = 14, MAX_FONT = 30;
+  function applyFontSize(px){
+    px = Math.min(MAX_FONT, Math.max(MIN_FONT, px));
+    fontSizeInput.value = px;
+    fontSizeValue.textContent = px + 'px';
+    contentSurfaceEl.style.fontSize = px + 'px';
+  }
+  const decBtn = document.getElementById('font-size-dec');
+  const incBtn = document.getElementById('font-size-inc');
+  if (decBtn) decBtn.addEventListener('click', () => applyFontSize(parseInt(fontSizeInput.value,10) - 1));
+  if (incBtn) incBtn.addEventListener('click', () => applyFontSize(parseInt(fontSizeInput.value,10) + 1));
 
   function collect(status){
     const selectedTags = Array.from(document.querySelectorAll('#tag-picker .tag-pick.selected')).map(b => b.dataset.tag);
@@ -631,6 +705,7 @@ function wireWritingEditor(params){
       title: document.getElementById('f-title').value.trim() || 'Untitled',
       subtitle: document.getElementById('f-subtitle').value.trim(),
       content: document.getElementById('f-content').innerHTML,
+      fontSize: parseInt(document.getElementById('f-font-size').value, 10) || 19,
       footer: document.getElementById('f-footer').innerHTML,
       slug: document.getElementById('f-slug').value.trim(),
       seoTitle: document.getElementById('f-seo-title').value.trim(),
@@ -650,6 +725,7 @@ function wireWritingEditor(params){
     toast('Draft saved.');
     location.hash = '/writings/edit/' + record.id;
     render();
+    maybeSyncPush();
   });
   document.getElementById('publish-btn').addEventListener('click', () => {
     const data = collect('published');
@@ -658,6 +734,7 @@ function wireWritingEditor(params){
     toast(future ? 'Writing scheduled.' : 'Writing published.');
     location.hash = '/writings/edit/' + record.id;
     render();
+    maybeSyncPush();
   });
 }
 
@@ -709,6 +786,7 @@ function categoryFormModal(existing){
     closeModal();
     toast('Category saved.');
     render();
+    maybeSyncPush();
   });
 }
 function wireCategoriesAdmin(){
@@ -724,6 +802,7 @@ function wireCategoriesAdmin(){
         const res = CMS.deleteCategory(delBtn.dataset.delCat);
         if (!res.ok) toast(res.reason); else toast('Category deleted.');
         render();
+        if (res.ok) maybeSyncPush();
       });
     }
   });
@@ -774,6 +853,7 @@ function tagFormModal(existing){
     closeModal();
     toast('Tag saved.');
     render();
+    maybeSyncPush();
   });
 }
 function wireTagsAdmin(){
@@ -789,6 +869,7 @@ function wireTagsAdmin(){
         CMS.deleteTag(delBtn.dataset.delTag);
         toast('Tag deleted.');
         render();
+        maybeSyncPush();
       });
     }
   });
@@ -957,6 +1038,8 @@ function wireAnalyticsAdmin(){
 function viewSettingsAdmin(){
   const settings = CMS.getSettings();
   const values = settings.aboutValues || [];
+  const syncTarget = CMS.getSyncTarget();
+  const syncCfg = CMS.getSyncConfig();
   return `
   <div class="admin-topbar"><h1>Settings</h1></div>
 
@@ -1004,7 +1087,7 @@ function viewSettingsAdmin(){
     <div class="field-group">
       <label class="field-label">Three highlight cards <span style="font-weight:400;color:var(--text-faint);">(optional — leave a title blank to hide that card)</span></label>
       ${[0,1,2].map(i => `
-        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:10px;">
+        <div class="value-field-row">
           <input class="field-input" id="f-about-value-title-${i}" placeholder="Card title" value="${escapeHtml((values[i]||{}).title || '')}">
           <input class="field-input" id="f-about-value-desc-${i}" placeholder="Card description" value="${escapeHtml((values[i]||{}).description || '')}">
         </div>`).join('')}
@@ -1025,6 +1108,42 @@ function viewSettingsAdmin(){
       <input class="field-input" type="password" id="f-new-password" placeholder="Leave blank to keep current password">
     </div>
     <button class="btn" id="save-credentials-btn">Save credentials</button>
+  </div>
+
+  <div class="admin-panel" style="max-width:600px;">
+    <h3>Cross-device sync (GitHub)</h3>
+    ${CMS.isSyncTargetConfigured() ? `
+      <p class="field-hint" style="margin-bottom:14px;">
+        Publishing here also writes to <strong>${escapeHtml(syncTarget.owner)}/${escapeHtml(syncTarget.repo)}</strong>
+        (<code>${escapeHtml(syncTarget.path)}</code> on <code>${escapeHtml(syncTarget.branch)}</code>), so any device
+        that opens your site pulls the same content — no more per-browser drift.
+      </p>
+      <div class="field-group">
+        <label class="field-label" for="f-github-token">GitHub personal access token</label>
+        <input class="field-input" type="password" id="f-github-token" value="${escapeHtml(syncCfg.token)}" placeholder="Fine-grained token, Contents: read & write, this repo only">
+        <p class="field-hint">Stored only in this browser. Needed here so this device can publish — every other device only ever reads, no token required.</p>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+        <button class="btn ghost" id="save-token-btn">Save token</button>
+        <button class="btn ghost" id="sync-pull-btn">Pull latest now</button>
+        <button class="btn ghost" id="sync-push-btn">Push current content now</button>
+      </div>
+      <p class="field-hint" id="sync-status">
+        Last pushed: ${syncCfg.lastPush ? fmtDate(syncCfg.lastPush) : 'never'} · Last pulled: ${syncCfg.lastPull ? fmtDate(syncCfg.lastPull) : 'never'}
+      </p>
+    ` : `
+      <p class="field-hint" style="margin-bottom:14px;">
+        Not set up yet. Cross-device sync uses your GitHub repo as shared storage, so
+        every device pulls the same content instead of relying on this browser alone.
+        To enable it:
+      </p>
+      <ol style="font-family:var(--sans); font-size:13.5px; color:var(--text-muted); padding-left:20px; margin-bottom:14px;">
+        <li style="margin-bottom:8px;">Make sure your site's repo is <strong>public</strong> (required — visitors' browsers read the content file directly, with no login).</li>
+        <li style="margin-bottom:8px;">Open <code>data.js</code> and fill in the <code>GITHUB_SYNC</code> constant near the top with your GitHub username and repo name.</li>
+        <li style="margin-bottom:8px;">Commit and push — once redeployed, this panel will show token and sync controls.</li>
+        <li>Generate a fine-grained GitHub token (Settings → Developer settings → Personal access tokens) scoped to just that repo with "Contents: Read and write" permission, then paste it here.</li>
+      </ol>
+    `}
   </div>
 
   <div class="admin-panel" style="max-width:600px;">
@@ -1057,6 +1176,7 @@ function wireSettingsAdmin(){
       CMS.saveSettings({ aboutPhoto: dataUrl });
       toast('About photo updated.');
       render();
+      maybeSyncPush();
     });
   });
   const removeBtn = document.getElementById('remove-about-photo-btn');
@@ -1065,6 +1185,7 @@ function wireSettingsAdmin(){
       CMS.saveSettings({ aboutPhoto: '' });
       toast('About photo removed.');
       render();
+      maybeSyncPush();
     });
   }
 
@@ -1084,6 +1205,7 @@ function wireSettingsAdmin(){
     });
     toast('About page saved.');
     render();
+    maybeSyncPush();
   });
 
   document.getElementById('save-credentials-btn').addEventListener('click', () => {
@@ -1136,6 +1258,39 @@ function wireSettingsAdmin(){
     );
     importFileInput.value = '';
   });
+
+  const saveTokenBtn = document.getElementById('save-token-btn');
+  if (saveTokenBtn){
+    saveTokenBtn.addEventListener('click', () => {
+      const token = document.getElementById('f-github-token').value.trim();
+      CMS.saveSyncConfig({ token });
+      toast('Token saved to this browser.');
+    });
+  }
+  const syncPullBtn = document.getElementById('sync-pull-btn');
+  if (syncPullBtn){
+    syncPullBtn.addEventListener('click', () => {
+      syncPullBtn.disabled = true;
+      toast('Pulling latest content from GitHub…');
+      CMS.pullFromGitHubPublic().then(res => {
+        syncPullBtn.disabled = false;
+        toast(res.ok ? 'Pulled latest content.' : ('Pull failed: ' + res.reason));
+        render();
+      });
+    });
+  }
+  const syncPushBtn = document.getElementById('sync-push-btn');
+  if (syncPushBtn){
+    syncPushBtn.addEventListener('click', () => {
+      syncPushBtn.disabled = true;
+      toast('Pushing current content to GitHub…');
+      CMS.pushToGitHub().then(res => {
+        syncPushBtn.disabled = false;
+        toast(res.ok ? 'Pushed — other devices will see this on next load.' : ('Push failed: ' + res.reason));
+        render();
+      });
+    });
+  }
 }
 
 /* ===================================================================
@@ -1205,7 +1360,17 @@ wireMap['/writings/edit'] = wireWritingEditor;
 })();
 
 window.addEventListener('hashchange', render);
-window.addEventListener('load', render);
+window.addEventListener('load', () => {
+  render();
+  if (CMS.isSyncTargetConfigured()){
+    CMS.pullFromGitHubPublic().then(res => {
+      if (!res.ok || !res.changed) return;
+      const hash = location.hash.replace(/^#/, '');
+      const isEditing = hash.indexOf('/writings/new') === 0 || hash.indexOf('/writings/edit') === 0;
+      if (!isEditing) render(); // never redraw over an open editor — would wipe in-progress typing
+    }).catch(() => {});
+  }
+});
 render();
 </script>
 </body>
