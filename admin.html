@@ -148,6 +148,7 @@ function adminShell(innerHtml, hash){
       <nav class="admin-nav">
         ${navItem('/dashboard','Dashboard','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>')}
         ${navItem('/writings','Writings','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>')}
+        ${navItem('/featured','Featured','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>')}
         ${navItem('/categories','Categories','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>')}
         ${navItem('/tags','Tags','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>')}
         ${navItem('/media','Media Library','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>')}
@@ -192,6 +193,7 @@ function viewLogin(){
         <input class="field-input" type="password" id="login-pass" placeholder="Enter admin password" autocomplete="current-password">
       </div>
       <button class="btn" style="width:100%;justify-content:center;" id="login-btn">Sign in</button>
+      <p class="login-hint">Demo login: <strong>admin</strong> / <strong>admin123</strong><br>Stored only in this browser's localStorage — there is no real server-side auth here.</p>
     </div>
   </div>`;
 }
@@ -325,6 +327,115 @@ function wireWritingsList(){
       });
     }
   });
+}
+
+/* ===================================================================
+   FEATURED WRITINGS (reorder for the homepage)
+=================================================================== */
+function viewFeaturedAdmin(){
+  const featured = CMS.getFeaturedPostsOrdered();
+  const allPublished = CMS.getPublishedPosts();
+  const notFeatured = allPublished.filter(p => !p.featured);
+  return `
+  <div class="admin-topbar"><h1>Featured Writings</h1></div>
+  <p class="field-hint" style="margin-bottom:24px;max-width:64ch;">
+    This is the exact order your featured writings appear in on the homepage. Use the
+    arrows to reorder, or the star to feature/unfeature a published writing. Drafts and
+    scheduled writings aren't shown here since they can't be featured until published.
+  </p>
+
+  <div class="admin-panel" style="padding:0;">
+    <div class="table-wrap">
+    <table class="admin-table">
+      <thead><tr><th style="width:70px;">Order</th><th>Writing</th><th>Category</th><th></th></tr></thead>
+      <tbody id="featured-tbody">
+        ${featured.length ? featured.map((p, i) => `
+        <tr data-id="${p.id}">
+          <td>
+            <div class="row-actions" style="justify-content:flex-start;">
+              <button class="btn-icon" data-move-up="${p.id}" title="Move up" ${i===0?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+              <button class="btn-icon" data-move-down="${p.id}" title="Move down" ${i===featured.length-1?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
+            </div>
+          </td>
+          <td class="title-cell">${p.title}<span class="sub">/${p.slug}</span></td>
+          <td>${(CMS.getCategory(p.category)||{}).name || '—'}</td>
+          <td><div class="row-actions">
+            <button class="btn-icon" data-unfeature="${p.id}" title="Remove from featured"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
+          </div></td>
+        </tr>`).join('') : `<tr><td colspan="4"><div class="admin-empty">No featured writings yet. Star one below to add it.</div></td></tr>`}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  ${notFeatured.length ? `
+  <div class="admin-panel" style="padding:0;margin-top:24px;">
+    <div class="table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>Not featured</th><th>Category</th><th></th></tr></thead>
+      <tbody id="unfeatured-tbody">
+        ${notFeatured.map(p => `
+        <tr data-id="${p.id}">
+          <td class="title-cell">${p.title}<span class="sub">/${p.slug}</span></td>
+          <td>${(CMS.getCategory(p.category)||{}).name || '—'}</td>
+          <td><div class="row-actions">
+            <button class="btn-icon" data-feature="${p.id}" title="Add to featured"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
+          </div></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>` : ''}
+  `;
+}
+function wireFeaturedAdmin(){
+  const tbody = document.getElementById('featured-tbody');
+  if (!tbody) return;
+
+  function moveFeatured(id, direction){
+    const ordered = CMS.getFeaturedPostsOrdered().map(p => p.id);
+    const idx = ordered.indexOf(id);
+    const swapWith = idx + direction;
+    if (swapWith < 0 || swapWith >= ordered.length) return;
+    [ordered[idx], ordered[swapWith]] = [ordered[swapWith], ordered[idx]];
+    CMS.reorderFeatured(ordered);
+    toast('Order updated.');
+    render();
+    maybeSyncPush();
+  }
+
+  tbody.addEventListener('click', e => {
+    const up = e.target.closest('[data-move-up]');
+    const down = e.target.closest('[data-move-down]');
+    const unfeature = e.target.closest('[data-unfeature]');
+    if (up) moveFeatured(up.dataset.moveUp, -1);
+    if (down) moveFeatured(down.dataset.moveDown, 1);
+    if (unfeature){
+      const post = CMS.getPostById(unfeature.dataset.unfeature);
+      if (post){
+        CMS.savePost(Object.assign({}, post, { featured: false }));
+        toast('Removed from featured.');
+        render();
+        maybeSyncPush();
+      }
+    }
+  });
+
+  const unfeaturedTbody = document.getElementById('unfeatured-tbody');
+  if (unfeaturedTbody){
+    unfeaturedTbody.addEventListener('click', e => {
+      const feature = e.target.closest('[data-feature]');
+      if (feature){
+        const post = CMS.getPostById(feature.dataset.feature);
+        if (post){
+          CMS.savePost(Object.assign({}, post, { featured: true, featuredOrder: undefined }));
+          toast('Added to featured.');
+          render();
+          maybeSyncPush();
+        }
+      }
+    });
+  }
 }
 
 /* ===================================================================
@@ -1297,6 +1408,7 @@ function wireSettingsAdmin(){
 =================================================================== */
 route('/dashboard', viewDashboard);
 route('/writings', viewWritingsList);
+route('/featured', viewFeaturedAdmin);
 route('/writings/new', viewWritingEditor);
 route('/writings/edit/:id', viewWritingEditor);
 route('/categories', viewCategoriesAdmin);
@@ -1308,6 +1420,7 @@ route('/settings', viewSettingsAdmin);
 const wireMap = {
   '/dashboard': () => {},
   '/writings': wireWritingsList,
+  '/featured': wireFeaturedAdmin,
   '/categories': wireCategoriesAdmin,
   '/tags': wireTagsAdmin,
   '/media': wireMediaAdmin,
