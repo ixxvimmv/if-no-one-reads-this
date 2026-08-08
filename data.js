@@ -30,8 +30,8 @@
    token, and it never ships to visitors.
 ===================================================================== */
 const GITHUB_SYNC = {
-  owner: "ixxvimmv",   // e.g. "yourusername" — your GitHub username or org
-  repo: "if-no-one-reads-this",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
+  owner: "",   // e.g. "yourusername" — your GitHub username or org
+  repo: "",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
   branch: "main",
   path: "content.json",
 };
@@ -333,6 +333,7 @@ const GITHUB_SYNC = {
     savePost(post) {
       const posts = this.getAllPosts();
       const isNew = !post.id;
+      const existingRecord = post.id ? posts.find((p) => p.id === post.id) : null;
       const existingSlugs = posts.filter((p) => p.id !== post.id).map((p) => p.slug);
       const record = Object.assign({}, post);
       record.id = record.id || uid("post");
@@ -345,11 +346,47 @@ const GITHUB_SYNC = {
       if (record.status === "published" && !record.publishDate) {
         record.publishDate = nowIso();
       }
+      record.featured = !!record.featured;
+      if (record.featured) {
+        // Preserve existing order across ordinary edits; only assign a fresh
+        // (append-to-end) order the first time a post becomes featured.
+        if (typeof record.featuredOrder !== "number") {
+          if (existingRecord && typeof existingRecord.featuredOrder === "number") {
+            record.featuredOrder = existingRecord.featuredOrder;
+          } else {
+            const maxOrder = posts
+              .filter((p) => p.featured && p.id !== record.id && typeof p.featuredOrder === "number")
+              .reduce((max, p) => Math.max(max, p.featuredOrder), -1);
+            record.featuredOrder = maxOrder + 1;
+          }
+        }
+      } else {
+        delete record.featuredOrder;
+      }
       const idx = posts.findIndex((p) => p.id === record.id);
       if (idx > -1) posts[idx] = record;
       else posts.unshift(record);
       writeJSON(LS.posts, posts);
       return record;
+    },
+    getFeaturedPostsOrdered() {
+      const featured = this.getPublishedPosts().filter((p) => p.featured);
+      return featured
+        .slice()
+        .sort((a, b) => {
+          const ao = typeof a.featuredOrder === "number" ? a.featuredOrder : 999999;
+          const bo = typeof b.featuredOrder === "number" ? b.featuredOrder : 999999;
+          if (ao !== bo) return ao - bo;
+          return new Date(b.publishDate) - new Date(a.publishDate);
+        });
+    },
+    reorderFeatured(orderedIds) {
+      const posts = this.getAllPosts();
+      orderedIds.forEach((id, i) => {
+        const p = posts.find((x) => x.id === id);
+        if (p) p.featuredOrder = i;
+      });
+      writeJSON(LS.posts, posts);
     },
     deletePost(id) {
       const posts = this.getAllPosts().filter((p) => p.id !== id);
@@ -366,6 +403,7 @@ const GITHUB_SYNC = {
         createdAt: nowIso(),
         updatedAt: nowIso(),
       });
+      delete copy.featuredOrder;
       const existingSlugs = this.getAllPosts().map((p) => p.slug);
       copy.slug = uniqueSlug(original.slug + "-copy", existingSlugs);
       const posts = this.getAllPosts();
