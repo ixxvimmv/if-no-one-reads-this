@@ -30,8 +30,8 @@
    token, and it never ships to visitors.
 ===================================================================== */
 const GITHUB_SYNC = {
-  owner: "",   // e.g. "yourusername" — your GitHub username or org
-  repo: "",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
+  owner: "ixxvimmv",   // e.g. "yourusername" — your GitHub username or org
+  repo: "if-no-one-reads-this",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
   branch: "main",
   path: "content.json",
 };
