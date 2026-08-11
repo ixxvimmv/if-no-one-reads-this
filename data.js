@@ -763,60 +763,53 @@ const GITHUB_SYNC = {
       const { token } = this.getSyncConfig();
       const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
-
-      let sha;
-      try {
-        sha = await this._fetchCurrentSha(apiUrl, cfg, headers);
-      } catch (e) {
-        return { ok: false, reason: e.message };
-      }
-
       const payload = this.getSyncPayload();
       const jsonStr = JSON.stringify(payload, null, 2);
       const contentB64 = btoa(unescape(encodeURIComponent(jsonStr)));
-      const body = { message: "Update writings from admin dashboard", content: contentB64, branch: cfg.branch };
-      if (sha) body.sha = sha;
 
-      try {
-        let putRes = await fetch(apiUrl, {
-          method: "PUT",
-          headers: Object.assign({ "Content-Type": "application/json" }, headers),
-          body: JSON.stringify(body),
-        });
-        if (!putRes.ok) {
-          const err = await putRes.json().catch(() => ({}));
-          const message = err.message || `GitHub API error ${putRes.status}.`;
-          const isShaConflict = putRes.status === 409 || putRes.status === 422 || /does not match|sha/i.test(message);
-          if (isShaConflict) {
-            // The file changed between our GET and PUT (another push landed, or a
-            // cached sha was stale). Re-fetch a truly fresh sha once and retry.
-            let freshSha;
-            try {
-              freshSha = await this._fetchCurrentSha(apiUrl, cfg, headers);
-            } catch (e2) {
-              return { ok: false, reason: message + " (retry also failed: " + e2.message + ")" };
-            }
-            const retryBody = Object.assign({}, body);
-            if (freshSha) retryBody.sha = freshSha;
-            else delete retryBody.sha;
-            putRes = await fetch(apiUrl, {
-              method: "PUT",
-              headers: Object.assign({ "Content-Type": "application/json" }, headers),
-              body: JSON.stringify(retryBody),
-            });
-            if (!putRes.ok) {
-              const err2 = await putRes.json().catch(() => ({}));
-              return { ok: false, reason: err2.message || `GitHub API error ${putRes.status} (after retry).` };
-            }
-          } else {
-            return { ok: false, reason: message };
-          }
+      const MAX_ATTEMPTS = 3;
+      let lastMessage = "";
+      let attemptsMade = 0;
+      let wasConflict = false;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        attemptsMade = attempt;
+        let sha;
+        try {
+          sha = await this._fetchCurrentSha(apiUrl, cfg, headers);
+        } catch (e) {
+          lastMessage = e.message;
+          wasConflict = false;
+          break; // fetching the sha itself failed (not a conflict) — no point retrying
         }
-        this.saveSyncConfig({ lastPush: nowIso() });
-        return { ok: true };
-      } catch (e) {
-        return { ok: false, reason: "Network error while pushing: " + e.message };
+        const body = { message: "Update writings from admin dashboard", content: contentB64, branch: cfg.branch };
+        if (sha) body.sha = sha;
+
+        let putRes;
+        try {
+          putRes = await fetch(apiUrl, {
+            method: "PUT",
+            headers: Object.assign({ "Content-Type": "application/json" }, headers),
+            body: JSON.stringify(body),
+          });
+        } catch (e) {
+          return { ok: false, reason: "Network error while pushing: " + e.message };
+        }
+        if (putRes.ok) {
+          this.saveSyncConfig({ lastPush: nowIso() });
+          return { ok: true, attempts: attempt };
+        }
+        const err = await putRes.json().catch(() => ({}));
+        const message = err.message || `GitHub API error ${putRes.status}.`;
+        const isShaConflict = putRes.status === 409 || putRes.status === 422 || /does not match|sha/i.test(message);
+        lastMessage = message;
+        wasConflict = isShaConflict;
+        if (!isShaConflict) break; // a real error, not a race — no point retrying
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, 350 * attempt)); // brief backoff before re-checking sha
+        }
       }
+      const suffix = wasConflict ? ` (retried ${attemptsMade} times, still conflicting)` : "";
+      return { ok: false, reason: lastMessage + suffix };
     },
     async pushToGitHub() {
       if (!this.isSyncTargetConfigured()) {
