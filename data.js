@@ -30,8 +30,8 @@
    token, and it never ships to visitors.
 ===================================================================== */
 const GITHUB_SYNC = {
-  owner: "ixxvimmv",   // e.g. "yourusername" — your GitHub username or org
-  repo: "if-no-one-reads-this",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
+  owner: "",   // e.g. "yourusername" — your GitHub username or org
+  repo: "",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
   branch: "main",
   path: "content.json",
 };
@@ -748,54 +748,94 @@ const GITHUB_SYNC = {
         return { ok: false, reason: "Network error while pulling: " + e.message };
       }
     },
-    async pushToGitHub() {
-      if (!this.isSyncTargetConfigured()) {
-        return { ok: false, reason: "GitHub sync target isn't set yet — fill in GITHUB_SYNC in data.js and redeploy." };
+    async _fetchCurrentSha(apiUrl, cfg, headers) {
+      const getRes = await fetch(`${apiUrl}?ref=${cfg.branch}&_=${Date.now()}`, { headers, cache: "no-store" });
+      if (getRes.ok) {
+        const info = await getRes.json();
+        return info.sha;
       }
+      if (getRes.status === 404) return undefined; // file doesn't exist yet — fine, we'll create it
+      const err = await getRes.json().catch(() => ({}));
+      throw new Error(err.message || `GitHub API error ${getRes.status} while checking the file.`);
+    },
+    async _pushToGitHubOnce() {
       const cfg = GITHUB_SYNC;
       const { token } = this.getSyncConfig();
-      if (!token) {
-        return { ok: false, reason: "Enter a GitHub personal access token in Settings first." };
-      }
       const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
+
       let sha;
       try {
-        const getRes = await fetch(`${apiUrl}?ref=${cfg.branch}`, { headers });
-        if (getRes.ok) {
-          const info = await getRes.json();
-          sha = info.sha;
-        } else if (getRes.status !== 404) {
-          const err = await getRes.json().catch(() => ({}));
-          return { ok: false, reason: err.message || `GitHub API error ${getRes.status} while checking the file.` };
-        }
+        sha = await this._fetchCurrentSha(apiUrl, cfg, headers);
       } catch (e) {
-        return { ok: false, reason: "Network error while checking the file: " + e.message };
+        return { ok: false, reason: e.message };
       }
+
       const payload = this.getSyncPayload();
       const jsonStr = JSON.stringify(payload, null, 2);
       const contentB64 = btoa(unescape(encodeURIComponent(jsonStr)));
-      const body = {
-        message: "Update writings from admin dashboard",
-        content: contentB64,
-        branch: cfg.branch,
-      };
+      const body = { message: "Update writings from admin dashboard", content: contentB64, branch: cfg.branch };
       if (sha) body.sha = sha;
+
       try {
-        const putRes = await fetch(apiUrl, {
+        let putRes = await fetch(apiUrl, {
           method: "PUT",
           headers: Object.assign({ "Content-Type": "application/json" }, headers),
           body: JSON.stringify(body),
         });
         if (!putRes.ok) {
           const err = await putRes.json().catch(() => ({}));
-          return { ok: false, reason: err.message || `GitHub API error ${putRes.status}.` };
+          const message = err.message || `GitHub API error ${putRes.status}.`;
+          const isShaConflict = putRes.status === 409 || putRes.status === 422 || /does not match|sha/i.test(message);
+          if (isShaConflict) {
+            // The file changed between our GET and PUT (another push landed, or a
+            // cached sha was stale). Re-fetch a truly fresh sha once and retry.
+            let freshSha;
+            try {
+              freshSha = await this._fetchCurrentSha(apiUrl, cfg, headers);
+            } catch (e2) {
+              return { ok: false, reason: message + " (retry also failed: " + e2.message + ")" };
+            }
+            const retryBody = Object.assign({}, body);
+            if (freshSha) retryBody.sha = freshSha;
+            else delete retryBody.sha;
+            putRes = await fetch(apiUrl, {
+              method: "PUT",
+              headers: Object.assign({ "Content-Type": "application/json" }, headers),
+              body: JSON.stringify(retryBody),
+            });
+            if (!putRes.ok) {
+              const err2 = await putRes.json().catch(() => ({}));
+              return { ok: false, reason: err2.message || `GitHub API error ${putRes.status} (after retry).` };
+            }
+          } else {
+            return { ok: false, reason: message };
+          }
         }
         this.saveSyncConfig({ lastPush: nowIso() });
         return { ok: true };
       } catch (e) {
         return { ok: false, reason: "Network error while pushing: " + e.message };
       }
+    },
+    async pushToGitHub() {
+      if (!this.isSyncTargetConfigured()) {
+        return { ok: false, reason: "GitHub sync target isn't set yet — fill in GITHUB_SYNC in data.js and redeploy." };
+      }
+      const { token } = this.getSyncConfig();
+      if (!token) {
+        return { ok: false, reason: "Enter a GitHub personal access token in Settings first." };
+      }
+      // Serialize pushes: if one is already in flight, queue this call to run
+      // right after it (using the latest local content at that time) instead of
+      // firing a second overlapping GET+PUT that would race the first.
+      if (this._pushChain) {
+        this._pushChain = this._pushChain.then(() => this._pushToGitHubOnce());
+      } else {
+        this._pushChain = this._pushToGitHubOnce();
+      }
+      const result = await this._pushChain;
+      return result;
     },
 
     /* ---- helpers exposed for views ---- */
