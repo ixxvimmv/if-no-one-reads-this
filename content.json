@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-08-13T10:35:35.855Z",
+  "exportedAt": "2026-08-13T10:36:55.771Z",
   "posts": [
     {
       "id": "post_maheekamsrdt4fa",
@@ -21,8 +21,8 @@
       "publishDate": "2025-04-29T10:28:00.000Z",
       "featured": true,
       "status": "published",
-      "createdAt": "2026-08-13T10:34:56.038Z",
-      "updatedAt": "2026-08-13T10:35:35.803Z",
+      "createdAt": "2026-08-13T10:36:55.680Z",
+      "updatedAt": "2026-08-13T10:36:55.680Z",
       "excerpt": "As I prepare matcha, I'm reminded that every step is a gesture of love. The ritual becomes a meditation, a way to slow down and appreciate the beauty in the…",
       "featuredOrder": 9
     },
@@ -743,10 +743,6 @@
     {
       "slug": "creative-writing",
       "name": "creative writing"
-    },
-    {
-      "slug": "matcha",
-      "name": "matcha"
     }
   ],
   "settings": {
