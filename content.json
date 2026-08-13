@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-08-13T10:55:49.014Z",
+  "exportedAt": "2026-08-13T10:55:56.338Z",
   "posts": [
     {
       "id": "post_maheekamsrdt4fa",
@@ -243,9 +243,9 @@
       ],
       "publishDate": "2026-04-21T08:59:00.000Z",
       "featured": true,
-      "status": "published",
+      "status": "draft",
       "createdAt": "2026-08-06T02:20:49.521Z",
-      "updatedAt": "2026-08-13T10:55:46.536Z",
+      "updatedAt": "2026-08-13T10:54:29.346Z",
       "excerpt": "The words hang in the air like a challenge, a provocation. They're a confession, a revelation, a whispered secret. And yet, they are also a paradox, a…",
       "featuredOrder": 8
     },
