@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-08-13T16:13:40.147Z",
+  "exportedAt": "2026-08-13T16:13:51.746Z",
   "posts": [
     {
       "id": "post_6oaa4fimsrojeqb",
@@ -19,11 +19,12 @@
         "love"
       ],
       "publishDate": "2026-08-13T15:24:00.000Z",
-      "featured": false,
+      "featured": true,
       "status": "published",
       "createdAt": "2026-08-13T15:35:18.611Z",
-      "updatedAt": "2026-08-13T16:13:40.085Z",
-      "excerpt": "Many people thought my favorite color was pink. They thought it was my branding, my signature color—that's why some of them would gift me something pink.…"
+      "updatedAt": "2026-08-13T16:13:51.679Z",
+      "excerpt": "Many people thought my favorite color was pink. They thought it was my branding, my signature color—that's why some of them would gift me something pink.…",
+      "featuredOrder": 10
     },
     {
       "id": "post_maheekamsrdt4fa",
