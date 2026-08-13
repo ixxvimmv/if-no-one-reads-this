@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-08-13T17:18:40.442Z",
+  "exportedAt": "2026-08-13T17:18:54.482Z",
   "posts": [
     {
       "id": "post_4nn82jtmsrs1wt7",
@@ -19,11 +19,12 @@
       ],
       "publishDate": "2026-08-13T16:39:00.000Z",
       "featured": true,
-      "status": "draft",
+      "status": "archived",
       "createdAt": "2026-08-13T17:13:40.699Z",
-      "updatedAt": "2026-08-13T17:18:40.377Z",
+      "updatedAt": "2026-08-13T17:18:54.405Z",
       "excerpt": "It's funny how easily I show my love to you. Maybe it's because I've never known how to love halfway. Maybe it's because I don't believe in giving someone I…",
-      "featuredOrder": 11
+      "featuredOrder": 11,
+      "previousStatus": "published"
     },
     {
       "id": "post_6oaa4fimsrojeqb",
