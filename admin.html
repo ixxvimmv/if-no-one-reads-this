@@ -1391,11 +1391,23 @@ function wireSettingsAdmin(){
   const syncPushBtn = document.getElementById('sync-push-btn');
   if (syncPushBtn){
     syncPushBtn.addEventListener('click', () => {
+      const tokenField = document.getElementById('f-github-token');
+      if (tokenField){
+        const typed = tokenField.value.trim();
+        if (typed) CMS.saveSyncConfig({ token: typed });
+      }
       syncPushBtn.disabled = true;
       toast('Pushing current content to GitHub…');
       CMS.pushToGitHub().then(res => {
         syncPushBtn.disabled = false;
-        toast(res.ok ? 'Pushed — other devices will see this on next load.' : ('Push failed: ' + res.reason));
+        if (res.ok){
+          toast('Pushed — other devices will see this on next load.');
+        } else {
+          const hint = /bad credentials/i.test(res.reason)
+            ? ' — check that the token is current, unexpired, and has access to this exact repo.'
+            : '';
+          toast('Push failed: ' + res.reason + hint);
+        }
         render();
       });
     });
