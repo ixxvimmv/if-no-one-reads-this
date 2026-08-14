@@ -137,7 +137,8 @@ function shade(hex){
 }
 function cardHTML(post){
   const c = cat(post.category);
-  return `<a class="card" href="#/post/${post.slug}" data-reveal-card>
+  const cardStyle = post.cardColor ? ` style="background:${post.cardColor};"` : '';
+  return `<a class="card" href="#/post/${post.slug}" data-reveal-card${cardStyle}>
     <div class="card-cover" style="${coverStyle(post)}"><span class="cat-tag">${c.name}</span></div>
     <div class="card-body">
       <div class="card-meta"><span>${fmtDate(post.publishDate)}</span><span>·</span><span>${CMS.readingTime(post.content)} min read</span></div>
@@ -149,7 +150,8 @@ function cardHTML(post){
 }
 function rowHTML(post){
   const c = cat(post.category);
-  return `<a class="row-item" href="#/post/${post.slug}" data-reveal-row>
+  const rowStyle = post.cardColor ? ` style="border-left:3px solid ${post.cardColor};padding-left:17px;"` : '';
+  return `<a class="row-item" href="#/post/${post.slug}" data-reveal-row${rowStyle}>
     <span class="row-date">${fmtDate(post.publishDate)}</span>
     <span>
       <h3>${post.title}</h3>
@@ -473,7 +475,7 @@ function viewPost(params){
 
   return `
   <article>
-    <div class="post-hero">
+    <div class="post-hero" ${post.cardColor ? `style="background:${post.cardColor};"` : ''}>
       <div class="wrap">
         <p class="eyebrow" data-reveal>${c.name}</p>
         <div class="post-meta-row" data-reveal>
