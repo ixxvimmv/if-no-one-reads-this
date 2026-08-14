@@ -699,6 +699,11 @@ ul{ margin:0; padding:0; list-style:none; }
 
 /* ---- category color dot ---- */
 .color-dot{ width:11px; height:11px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:middle; }
+.color-preset{
+  width:28px; height:28px; border-radius:50%; border:2px solid var(--line-strong); cursor:pointer; padding:0;
+  transition: transform .15s, border-color .15s;
+}
+.color-preset:hover{ transform: scale(1.12); border-color: var(--accent); }
 
 /* ---- empty admin state ---- */
 .admin-empty{ text-align:center; padding: 60px 20px; color: var(--text-muted); font-family: var(--sans); }
