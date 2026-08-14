@@ -340,10 +340,10 @@ function viewWritings(){
         </select>
         <div class="view-toggle" role="group" aria-label="Choose view">
           <button class="view-toggle-btn ${getWritingsViewMode()==='list'?'active':''}" id="view-list-btn" data-view="list" aria-label="List view" title="List view">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="2" width="22" height="4.5" rx="2.25"/><rect x="1" y="9.75" width="22" height="4.5" rx="2.25"/><rect x="1" y="17.5" width="22" height="4.5" rx="2.25"/></svg>
           </button>
           <button class="view-toggle-btn ${getWritingsViewMode()==='grid'?'active':''}" id="view-grid-btn" data-view="grid" aria-label="Grid view" title="Grid view">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="1" width="9.5" height="9.5" rx="2.6"/><rect x="13.5" y="1" width="9.5" height="9.5" rx="2.6"/><rect x="1" y="13.5" width="9.5" height="9.5" rx="2.6"/><rect x="13.5" y="13.5" width="9.5" height="9.5" rx="2.6"/></svg>
           </button>
         </div>
       </div>
@@ -522,7 +522,7 @@ function viewPost(params){
     ${related.length ? `
     <div class="related-section">
       <h2>Related writings</h2>
-      <div class="grid-cards">${related.map(cardHTML).join('')}</div>
+      <div class="grid-cards featured-grid">${related.map(cardHTML).join('')}</div>
     </div>` : ''}
   </article>
   `;
