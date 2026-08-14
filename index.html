@@ -253,7 +253,7 @@ function viewHome(){
         <h2>Featured writings</h2>
         <a class="view-all" href="#/writings">View all writings →</a>
       </div>
-      <div class="grid-cards">${featured.map(cardHTML).join('')}</div>
+      <div class="grid-cards featured-grid">${featured.map(cardHTML).join('')}</div>
     </div>
   </section>` : ''}
 
@@ -314,6 +314,8 @@ function viewAbout(){
 
 const PAGE_SIZE = 6;
 const TAG_PREVIEW_COUNT = 10;
+function getWritingsViewMode(){ return localStorage.getItem('inrt-writings-view') || 'list'; }
+function setWritingsViewMode(mode){ localStorage.setItem('inrt-writings-view', mode); }
 function viewWritings(){
   const page = parseInt(currentQuery.page || '1', 10);
   const sort = currentQuery.sort || 'newest';
@@ -336,6 +338,14 @@ function viewWritings(){
           <option value="newest" ${sort==='newest'?'selected':''}>Newest first</option>
           <option value="oldest" ${sort==='oldest'?'selected':''}>Oldest first</option>
         </select>
+        <div class="view-toggle" role="group" aria-label="Choose view">
+          <button class="view-toggle-btn ${getWritingsViewMode()==='list'?'active':''}" id="view-list-btn" data-view="list" aria-label="List view" title="List view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+          </button>
+          <button class="view-toggle-btn ${getWritingsViewMode()==='grid'?'active':''}" id="view-grid-btn" data-view="grid" aria-label="Grid view" title="Grid view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </button>
+        </div>
       </div>
       <div class="chip-row" id="writings-filters">
         <button class="chip ${catFilter==='all'?'active':''}" data-filter="all">All</button>
@@ -369,8 +379,12 @@ function renderWritingsList(catFilter, tagFilter, q, sort, page){
   if (!total){
     return `<div class="empty-state">No writings match your search. Try a different word, category, or tag.</div>`;
   }
+  const mode = getWritingsViewMode();
+  const itemsHtml = mode === 'grid'
+    ? `<div class="grid-cards">${pageItems.map(cardHTML).join('')}</div>`
+    : `<div class="row-list">${pageItems.map(rowHTML).join('')}</div>`;
   return `
-    <div class="row-list">${pageItems.map(rowHTML).join('')}</div>
+    ${itemsHtml}
     ${renderPagination(safePage, totalPages)}
   `;
 }
@@ -591,6 +605,16 @@ function wireDynamic(){
       t = setTimeout(() => goWritings({ q: searchInput.value, page: '1' }), 250);
     });
     document.getElementById('writings-sort').addEventListener('change', e => goWritings({ sort: e.target.value, page:'1' }));
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setWritingsViewMode(btn.dataset.view);
+        document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
+        document.getElementById('writings-list-wrap').innerHTML = renderWritingsList(
+          currentQuery.cat || 'all', currentQuery.tag || '', currentQuery.q || '', currentQuery.sort || 'newest', parseInt(currentQuery.page || '1', 10)
+        );
+        setupReveal();
+      });
+    });
     document.querySelectorAll('#writings-filters .chip').forEach(chip => {
       chip.addEventListener('click', () => goWritings({ cat: chip.dataset.filter, page:'1' }));
     });
