@@ -193,6 +193,7 @@ function viewLogin(){
         <input class="field-input" type="password" id="login-pass" placeholder="Enter admin password" autocomplete="current-password">
       </div>
       <button class="btn" style="width:100%;justify-content:center;" id="login-btn">Sign in</button>
+      <p class="login-hint">Demo login: <strong>admin</strong> / <strong>admin123</strong><br>Stored only in this browser's localStorage — there is no real server-side auth here.</p>
     </div>
   </div>`;
 }
@@ -338,27 +339,29 @@ function viewFeaturedAdmin(){
   return `
   <div class="admin-topbar"><h1>Featured Writings</h1></div>
   <p class="field-hint" style="margin-bottom:24px;max-width:64ch;">
-    This is the exact order your featured writings appear in on the homepage. Use the
-    arrows to reorder, or the star to feature/unfeature a published writing. Drafts and
-    scheduled writings aren't shown here since they can't be featured until published.
+    This is the exact order your featured writings appear in on the homepage. Drag rows
+    by the handle to reorder (the small arrows still work too, for keyboard or touch),
+    or use the star to feature/unfeature a published writing. Drafts and scheduled
+    writings aren't shown here since they can't be featured until published.
   </p>
 
   <div class="admin-panel" style="padding:0;">
     <div class="table-wrap">
-    <table class="admin-table">
-      <thead><tr><th style="width:70px;">Order</th><th>Writing</th><th>Category</th><th></th></tr></thead>
+    <table class="admin-table" id="featured-table">
+      <thead><tr><th style="width:44px;"></th><th>Writing</th><th>Category</th><th style="width:90px;"></th></tr></thead>
       <tbody id="featured-tbody">
         ${featured.length ? featured.map((p, i) => `
-        <tr data-id="${p.id}">
+        <tr data-id="${p.id}" draggable="true">
           <td>
-            <div class="row-actions" style="justify-content:flex-start;">
-              <button class="btn-icon" data-move-up="${p.id}" title="Move up" ${i===0?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
-              <button class="btn-icon" data-move-down="${p.id}" title="Move down" ${i===featured.length-1?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
+            <div class="drag-handle" title="Drag to reorder" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
             </div>
           </td>
           <td class="title-cell">${p.title}<span class="sub">/${p.slug}</span></td>
           <td>${(CMS.getCategory(p.category)||{}).name || '—'}</td>
           <td><div class="row-actions">
+            <button class="btn-icon btn-icon-tiny" data-move-up="${p.id}" title="Move up" ${i===0?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+            <button class="btn-icon btn-icon-tiny" data-move-down="${p.id}" title="Move down" ${i===featured.length-1?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
             <button class="btn-icon" data-unfeature="${p.id}" title="Remove from featured"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
           </div></td>
         </tr>`).join('') : `<tr><td colspan="4"><div class="admin-empty">No featured writings yet. Star one below to add it.</div></td></tr>`}
@@ -418,6 +421,35 @@ function wireFeaturedAdmin(){
         maybeSyncPush();
       }
     }
+  });
+
+  /* ---- drag-and-drop reordering ---- */
+  let draggedRow = null;
+  tbody.querySelectorAll('tr[draggable="true"]').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      draggedRow = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', row.dataset.id); } catch (err) {}
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      draggedRow = null;
+      const newOrder = Array.from(tbody.querySelectorAll('tr[data-id]')).map(r => r.dataset.id);
+      CMS.reorderFeatured(newOrder);
+      toast('Order updated.');
+      render();
+      maybeSyncPush();
+    });
+  });
+  tbody.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (!draggedRow) return;
+    const target = e.target.closest('tr[data-id]');
+    if (!target || target === draggedRow) return;
+    const rect = target.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    tbody.insertBefore(draggedRow, before ? target : target.nextSibling);
   });
 
   const unfeaturedTbody = document.getElementById('unfeatured-tbody');
