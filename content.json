@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-08-14T04:28:32.883Z",
+  "exportedAt": "2026-08-14T04:29:10.736Z",
   "posts": [
     {
       "id": "post_ycs8jj3mssg55mw",
@@ -818,6 +818,10 @@
     {
       "slug": "creative-writing",
       "name": "creative writing"
+    },
+    {
+      "slug": "coffee",
+      "name": "coffee"
     }
   ],
   "settings": {
