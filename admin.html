@@ -193,6 +193,7 @@ function viewLogin(){
         <input class="field-input" type="password" id="login-pass" placeholder="Enter admin password" autocomplete="current-password">
       </div>
       <button class="btn" style="width:100%;justify-content:center;" id="login-btn">Sign in</button>
+      <p class="login-hint">Demo login: <strong>admin</strong> / <strong>admin123</strong><br>Stored only in this browser's localStorage — there is no real server-side auth here.</p>
     </div>
   </div>`;
 }
@@ -648,7 +649,7 @@ function viewWritingEditor(params){
   if (isEdit && !post) return `<div class="admin-empty">Writing not found. <a href="#/writings">Back to writings</a></div>`;
   const cats = CMS.getCategories();
   const tags = CMS.getTags();
-  const p = post || { title:'', subtitle:'', content:'', footer:'', category: cats[0]?.slug || '', tags:[], coverImage:'', status:'draft', featured:false, seoTitle:'', metaDescription:'', slug:'', publishDate:'', fontSize:19 };
+  const p = post || { title:'', subtitle:'', content:'', footer:'', category: cats[0]?.slug || '', tags:[], coverImage:'', status:'draft', featured:false, seoTitle:'', metaDescription:'', slug:'', publishDate:'', fontSize:19, cardColor:'' };
 
   const isArchived = isEdit && computeStatus(p) === 'archived';
 
@@ -750,6 +751,18 @@ function viewWritingEditor(params){
           <input type="checkbox" id="f-featured" ${p.featured ? 'checked' : ''}>
           <label for="f-featured">Feature this writing on the homepage</label>
         </div>
+        <div class="field-group">
+          <label class="field-label">Card color <span style="font-weight:400;color:var(--text-faint);">(optional)</span></label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="color" id="f-card-color" value="${p.cardColor || '#EDEAE0'}" style="width:44px;height:38px;border:1px solid var(--line-strong);border-radius:var(--radius);padding:2px;background:var(--surface);cursor:pointer;">
+            <input type="hidden" id="f-card-color-enabled" value="${p.cardColor ? '1' : '0'}">
+            <button type="button" class="btn ghost small" id="clear-card-color-btn" style="${p.cardColor ? '' : 'display:none;'}">Use default</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            ${['#FBEEF2','#EAF1F8','#EAF6EE','#FBF3E4','#F1EAF8'].map(hex => `<button type="button" class="color-preset" data-preset="${hex}" style="background:${hex};" title="${hex}"></button>`).join('')}
+          </div>
+          <p class="field-hint">Tints this writing's card, list row, and page header wherever it appears. Leave unset to use the category color instead.</p>
+        </div>
         ${isEdit ? `<p class="field-hint">Created ${fmtDate(p.createdAt)} · Last updated ${fmtDate(p.updatedAt)}</p>` : ''}
       </div>
     </div>
@@ -788,6 +801,27 @@ function wireWritingEditor(params){
   document.querySelectorAll('#tag-picker .tag-pick').forEach(btn => {
     btn.addEventListener('click', () => btn.classList.toggle('selected'));
   });
+
+  const cardColorInput = document.getElementById('f-card-color');
+  const cardColorEnabled = document.getElementById('f-card-color-enabled');
+  const clearCardColorBtn = document.getElementById('clear-card-color-btn');
+  function setCardColor(hex){
+    cardColorInput.value = hex;
+    cardColorEnabled.value = '1';
+    clearCardColorBtn.style.display = '';
+  }
+  if (cardColorInput){
+    cardColorInput.addEventListener('input', () => setCardColor(cardColorInput.value));
+  }
+  document.querySelectorAll('.color-preset').forEach(btn => {
+    btn.addEventListener('click', () => setCardColor(btn.dataset.preset));
+  });
+  if (clearCardColorBtn){
+    clearCardColorBtn.addEventListener('click', () => {
+      cardColorEnabled.value = '0';
+      clearCardColorBtn.style.display = 'none';
+    });
+  }
 
   document.getElementById('choose-cover-btn').addEventListener('click', () => {
     openImagePicker(dataUrl => {
@@ -855,6 +889,7 @@ function wireWritingEditor(params){
       tags: selectedTags,
       publishDate: document.getElementById('f-pubdate').value ? new Date(document.getElementById('f-pubdate').value).toISOString() : new Date().toISOString(),
       featured: document.getElementById('f-featured').checked,
+      cardColor: document.getElementById('f-card-color-enabled').value === '1' ? document.getElementById('f-card-color').value : '',
       status: status,
       createdAt: existing ? existing.createdAt : undefined,
     };
