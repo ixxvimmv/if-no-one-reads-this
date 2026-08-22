@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-08-19T03:36:38.354Z",
+  "exportedAt": "2026-08-22T04:25:06.423Z",
   "posts": [
     {
       "id": "post_e8813ojmszjebe7",
@@ -21,11 +21,12 @@
       "publishDate": "2026-08-18T18:10:00.000Z",
       "featured": true,
       "cardColor": "",
-      "status": "published",
+      "status": "archived",
       "createdAt": "2026-08-19T03:33:32.335Z",
-      "updatedAt": "2026-08-19T03:36:38.310Z",
+      "updatedAt": "2026-08-22T04:25:06.370Z",
       "excerpt": "I keep seeing the phrase, “Does knowing me more lead to loving me less?” And I remember that I even wrote something related to it before, but back then, it was…",
-      "featuredOrder": 0
+      "featuredOrder": 0,
+      "previousStatus": "published"
     },
     {
       "id": "post_oqsdsjkmszj4a97",
