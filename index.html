@@ -5,10 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title id="doc-title">If No One Reads This — a place to keep the unfinished thoughts</title>
 <meta id="doc-desc" name="description" content="A personal writing sanctuary of essays, letters, journal entries, poems, and stories.">
+<!-- Open Graph / Twitter Card: these are the site-wide defaults that show when a link is
+     shared. Because this site renders with JavaScript and has no server, most link-preview
+     crawlers (Twitter/X, iMessage, Slack, etc.) only ever see these static tags — they don't
+     wait for JS to run, so a genuinely different preview per writing isn't possible without
+     a server. The JS below does still update these when you're browsing to a specific
+     writing, which helps in the cases where it IS respected (e.g. copying a link from an
+     already-open tab, some crawlers that do execute JS), but treat the tags below as the
+     reliable baseline. og:image needs a real https:// URL — data URIs (which is how cover
+     images are stored) won't load for crawlers, so this defaults to no image unless you set
+     one in Settings → Social sharing. -->
+<meta id="og-type" property="og:type" content="website">
+<meta id="og-title" property="og:title" content="If No One Reads This">
+<meta id="og-desc" property="og:description" content="A personal writing sanctuary of essays, letters, journal entries, poems, and stories.">
+<meta id="og-url" property="og:url" content="">
+<meta id="og-image" property="og:image" content="">
+<meta id="twitter-card" name="twitter:card" content="summary">
+<meta id="twitter-title" name="twitter:title" content="If No One Reads This">
+<meta id="twitter-desc" name="twitter:description" content="A personal writing sanctuary of essays, letters, journal entries, poems, and stories.">
+<meta id="twitter-image" name="twitter:image" content="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%238B6F47'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='15' font-weight='600' fill='white' text-anchor='middle'%3EIN%3C/text%3E%3C/svg%3E">
 </head>
 <body>
 
@@ -135,10 +155,21 @@ function shade(hex){
     return `rgb(${r},${g},${b})`;
   }catch(e){ return hex; }
 }
+function isColorDark(hex){
+  if (!hex) return false;
+  const clean = hex.replace('#','');
+  if (clean.length !== 6) return false;
+  const r = parseInt(clean.slice(0,2),16), g = parseInt(clean.slice(2,4),16), b = parseInt(clean.slice(4,6),16);
+  if ([r,g,b].some(isNaN)) return false;
+  // Perceptual luminance (WCAG-style weighting) — below this, dark text stops being readable.
+  const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return luminance < 0.55;
+}
 function cardHTML(post){
   const c = cat(post.category);
+  const dark = isColorDark(post.cardColor);
   const cardStyle = post.cardColor ? ` style="background:${post.cardColor};"` : '';
-  return `<a class="card" href="#/post/${post.slug}" data-reveal-card${cardStyle}>
+  return `<a class="card${dark ? ' card-on-dark' : ''}" href="#/post/${post.slug}" data-reveal-card${cardStyle}>
     <div class="card-cover" style="${coverStyle(post)}"><span class="cat-tag">${c.name}</span></div>
     <div class="card-body">
       <div class="card-meta"><span>${fmtDate(post.publishDate)}</span><span>·</span><span>${CMS.readingTime(post.content)} min read</span></div>
@@ -188,6 +219,20 @@ function getQuery(){
   if (q) new URLSearchParams(q).forEach((v,k) => params[k] = v);
   return params;
 }
+function setSocialMeta({ title, description, url, image }){
+  const t = title || "If No One Reads This";
+  const d = description || "A personal writing sanctuary of essays, letters, journal entries, poems, and stories.";
+  const u = url || location.href;
+  const img = image || (CMS.getSettings().socialImageUrl || '');
+  document.getElementById('og-title').setAttribute('content', t);
+  document.getElementById('og-desc').setAttribute('content', d);
+  document.getElementById('og-url').setAttribute('content', u);
+  document.getElementById('og-image').setAttribute('content', img);
+  document.getElementById('twitter-title').setAttribute('content', t);
+  document.getElementById('twitter-desc').setAttribute('content', d);
+  document.getElementById('twitter-image').setAttribute('content', img);
+  document.getElementById('twitter-card').setAttribute('content', img ? 'summary_large_image' : 'summary');
+}
 function render(){
   const full = location.hash.replace(/^#/, '') || '/';
   const hash = full.split('?')[0] || '/';
@@ -197,6 +242,7 @@ function render(){
   main.classList.remove('page-enter');
   document.getElementById('doc-title').textContent = "If No One Reads This — a place to keep the unfinished thoughts";
   document.getElementById('doc-desc').setAttribute('content','A personal writing sanctuary of essays, letters, journal entries, poems, and stories.');
+  setSocialMeta({});
   main.innerHTML = match ? match.handler(match.params) : view404();
   void main.offsetWidth;
   main.classList.add('page-enter');
@@ -470,12 +516,17 @@ function viewPost(params){
 
   document.getElementById('doc-title').textContent = (post.seoTitle || post.title) + " — If No One Reads This";
   document.getElementById('doc-desc').setAttribute('content', post.metaDescription || post.excerpt || '');
+  setSocialMeta({
+    title: (post.seoTitle || post.title) + " — If No One Reads This",
+    description: post.metaDescription || post.excerpt || '',
+    url: location.href,
+  });
   CMS.recordView(post.slug);
   const viewCount = CMS.getViewsForPost(post.slug);
 
   return `
   <article>
-    <div class="post-hero" ${post.cardColor ? `style="background:${post.cardColor};"` : ''}>
+    <div class="post-hero${post.cardColor && isColorDark(post.cardColor) ? ' hero-on-dark' : ''}" ${post.cardColor ? `style="background:${post.cardColor};"` : ''}>
       <div class="wrap">
         <p class="eyebrow" data-reveal>${c.name}</p>
         <div class="post-meta-row" data-reveal>
