@@ -650,6 +650,7 @@ const GITHUB_SYNC = {
           { title: "Honesty over polish", description: "I'd rather a sentence be true and a little rough than smooth and slightly false." },
           { title: "Room for you in it", description: "The most personal writing is often the most shareable. I try to leave space for your own story inside mine." },
         ],
+        socialImageUrl: "",
       };
       return Object.assign({}, defaults, readJSON(LS.settings, {}));
     },
