@@ -30,8 +30,8 @@
    token, and it never ships to visitors.
 ===================================================================== */
 const GITHUB_SYNC = {
-  owner: "ixxvimmv",   // e.g. "yourusername" — your GitHub username or org
-  repo: "if-no-one-reads-this",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
+  owner: "",   // e.g. "yourusername" — your GitHub username or org
+  repo: "",    // e.g. "if-no-one-reads-this" — must be a PUBLIC repo
   branch: "main",
   path: "content.json",
 };
@@ -349,15 +349,18 @@ const GITHUB_SYNC = {
       record.featured = !!record.featured;
       if (record.featured) {
         // Preserve existing order across ordinary edits; only assign a fresh
-        // (append-to-end) order the first time a post becomes featured.
+        // order the first time a post becomes featured — and put it FIRST
+        // (latest), shifting every other featured post back by one.
         if (typeof record.featuredOrder !== "number") {
           if (existingRecord && typeof existingRecord.featuredOrder === "number") {
             record.featuredOrder = existingRecord.featuredOrder;
           } else {
-            const maxOrder = posts
-              .filter((p) => p.featured && p.id !== record.id && typeof p.featuredOrder === "number")
-              .reduce((max, p) => Math.max(max, p.featuredOrder), -1);
-            record.featuredOrder = maxOrder + 1;
+            posts.forEach((p) => {
+              if (p.featured && p.id !== record.id && typeof p.featuredOrder === "number") {
+                p.featuredOrder += 1;
+              }
+            });
+            record.featuredOrder = 0;
           }
         }
       } else {
