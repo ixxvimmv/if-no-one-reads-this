@@ -227,6 +227,19 @@ ul{ margin:0; padding:0; list-style:none; }
 .card .excerpt{ color: var(--text-muted); font-size: 15px; flex:1; margin-bottom: 14px; }
 .card .read-more{ font-family: var(--sans); font-size:13px; font-weight:600; color: var(--accent); }
 
+/* Applied via JS (index.html) when a writing's custom card color is dark enough
+   that the default dark text would fail contrast — flips card/header text to light. */
+.card.card-on-dark{ color: rgba(255,255,255,.96); }
+.card.card-on-dark .card-meta{ color: rgba(255,255,255,.72); }
+.card.card-on-dark .excerpt{ color: rgba(255,255,255,.85); }
+.card.card-on-dark .read-more{ color: #fff; }
+.post-hero.hero-on-dark .eyebrow{ color: rgba(255,255,255,.85); }
+.post-hero.hero-on-dark .post-meta-row{ color: rgba(255,255,255,.8); }
+.post-hero.hero-on-dark .post-meta-row .sep{ color: rgba(255,255,255,.5); }
+.post-hero.hero-on-dark h1{ color: #fff; }
+.post-hero.hero-on-dark .subtitle{ color: rgba(255,255,255,.88); }
+.post-hero.hero-on-dark .tag-pill{ background: rgba(255,255,255,.22); color: #fff; }
+
 /* cover gradients per category, abstract textures, no external images */
 .cov-letters{ background: linear-gradient(135deg,#8B6F47,#c9a367); }
 .cov-reflections{ background: linear-gradient(135deg,#5C6B5D,#8fa091); }
