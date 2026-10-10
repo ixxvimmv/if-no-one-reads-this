@@ -231,15 +231,18 @@ function viewLogin(){
         <input class="field-input" type="password" id="login-pass" placeholder="Enter admin password" autocomplete="current-password">
       </div>
       <button class="btn" style="width:100%;justify-content:center;" id="login-btn">Sign in</button>
-    </div>
+       </div>
   </div>`;
 }
 function wireLogin(){
   const btn = document.getElementById('login-btn');
   const userInput = document.getElementById('login-user');
   const passInput = document.getElementById('login-pass');
-  function tryLogin(){
-    if (CMS.login(userInput.value.trim(), passInput.value)){
+  async function tryLogin(){
+    const errEl = document.getElementById('login-error');
+    if (CMS.isLockedOut()){ errEl.textContent = 'Too many attempts. Wait 30 seconds and try again.'; errEl.classList.add('show'); return; }
+    errEl.textContent = 'Incorrect username or password. Try again.';
+    if (await CMS.login(userInput.value.trim(), passInput.value)){
       CMS.markKnownDevice();
       location.hash = '/dashboard';
     } else {
@@ -931,7 +934,39 @@ function wireWritingEditor(params){
     };
   }
 
+  /* Autosave: a local safety copy every few seconds while editing (not published, not synced). */
+  const AUTOSAVE_KEY = 'inrt_autosave_' + (params.id || 'new');
+  const editorRoot = document.getElementById('f-content');
+  function writeAutosave(){
+    try {
+      const snap = { title: document.getElementById('f-title').value, content: editorRoot.innerHTML, footer: document.getElementById('f-footer').innerHTML, t: Date.now() };
+      if (snap.title.trim() || editorRoot.textContent.trim()) localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snap));
+    } catch(e){}
+  }
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (raw){
+      const snap = JSON.parse(raw);
+      const cur = document.getElementById('f-content').innerHTML;
+      if (snap && snap.content && snap.content !== cur && (!params.id || snap.t > (Date.parse((CMS.getPostById(params.id)||{}).updatedAt) || 0))){
+        const bar = document.createElement('div');
+        bar.className = 'admin-panel';
+        bar.style.cssText = 'margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;';
+        bar.innerHTML = '<span style="flex:1;min-width:200px;">An unsaved copy from ' + new Date(snap.t).toLocaleString() + ' was found.</span><button class="btn small" type="button" id="as-restore">Restore it</button><button class="btn ghost small" type="button" id="as-discard">Discard</button>';
+        const tf = document.getElementById('f-title').closest('.field-group') || document.getElementById('f-title'); tf.parentNode.insertBefore(bar, tf);
+        bar.querySelector('#as-restore').addEventListener('click', () => {
+          document.getElementById('f-title').value = snap.title || '';
+          editorRoot.innerHTML = snap.content; document.getElementById('f-footer').innerHTML = snap.footer || '';
+          bar.remove(); toast('Restored.');
+        });
+        bar.querySelector('#as-discard').addEventListener('click', () => { localStorage.removeItem(AUTOSAVE_KEY); bar.remove(); });
+      }
+    }
+  } catch(e){}
+  const autosaveTimer = setInterval(() => { if (!document.getElementById('f-content')) { clearInterval(autosaveTimer); return; } writeAutosave(); }, 4000);
+
   document.getElementById('save-draft-btn').addEventListener('click', () => {
+    try { localStorage.removeItem(AUTOSAVE_KEY); } catch(e){}
     const record = CMS.savePost(collect('draft'));
     toast('Draft saved.');
     location.hash = '/writings/edit/' + record.id;
@@ -939,6 +974,7 @@ function wireWritingEditor(params){
     maybeSyncPush();
   });
   document.getElementById('publish-btn').addEventListener('click', () => {
+    try { localStorage.removeItem(AUTOSAVE_KEY); } catch(e){}
     const data = collect('published');
     const future = new Date(data.publishDate) > new Date();
     const record = CMS.savePost(data);
@@ -1333,6 +1369,20 @@ function viewSettingsAdmin(){
   </div>
 
   <div class="admin-panel" style="max-width:520px;">
+    <h3>Visitor analytics</h3>
+    <p class="field-hint" style="margin-bottom:16px;">
+      The dashboard's own view counts only include visits from this browser. To see real visitors from everywhere,
+      make a free <a href="https://www.goatcounter.com" target="_blank" rel="noopener">GoatCounter</a> account and enter your site code
+      (the <b>xxx</b> in <b>xxx.goatcounter.com</b>). It's privacy-friendly and needs no cookie banner. Leave empty to turn off.
+    </p>
+    <div class="field-group">
+      <label class="field-label" for="f-analytics">GoatCounter site code</label>
+      <input class="field-input" id="f-analytics" value="${escapeHtml(settings.analyticsCode || '')}" placeholder="yourname">
+    </div>
+    <button class="btn" id="save-analytics-btn">Save</button>
+  </div>
+
+  <div class="admin-panel" style="max-width:520px;">
     <h3>Account credentials</h3>
     <p class="field-hint" style="margin-bottom:16px;">Change the username and password used to sign in to this dashboard. You'll need to log in again with the new credentials next time.</p>
     <div class="field-group">
@@ -1444,6 +1494,13 @@ function wireSettingsAdmin(){
     maybeSyncPush();
   });
 
+  document.getElementById('save-analytics-btn').addEventListener('click', () => {
+    const code = document.getElementById('f-analytics').value.trim().toLowerCase();
+    if (code && !/^[a-z0-9-]+$/.test(code)){ toast('Use only the site code, like "yourname".'); return; }
+    CMS.saveSettings({ analyticsCode: code });
+    toast(code ? 'Analytics turned on.' : 'Analytics turned off.');
+    maybeSyncPush();
+  });
   document.getElementById('save-social-btn').addEventListener('click', () => {
     const url = document.getElementById('f-social-image').value.trim();
     if (url && !/^https:\/\//i.test(url)){
@@ -1456,12 +1513,12 @@ function wireSettingsAdmin(){
     maybeSyncPush();
   });
 
-  document.getElementById('save-credentials-btn').addEventListener('click', () => {
+  document.getElementById('save-credentials-btn').addEventListener('click', async () => {
     const newUser = document.getElementById('f-username').value.trim();
     const newPass = document.getElementById('f-new-password').value;
     if (!newUser){ toast('Username cannot be empty.'); return; }
     CMS.changeUsername(newUser);
-    if (newPass) CMS.changePassword(newPass);
+    if (newPass) await CMS.changePassword(newPass);
     toast('Credentials updated.');
     render();
   });
