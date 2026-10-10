@@ -450,7 +450,7 @@ function renderWritingsList(catFilter, tagFilter, q, sort, page){
   if (tagFilter) posts = posts.filter(p => (p.tags||[]).includes(tagFilter));
   if (q){
     const ql = q.toLowerCase();
-    posts = posts.filter(p => (p.title + ' ' + p.excerpt + ' ' + (p.tags||[]).join(' ')).toLowerCase().includes(ql));
+    posts = posts.filter(p => postMatches(p, ql));
   }
   posts = sort === 'oldest' ? sortedByDateAsc(posts) : sortedByDateDesc(posts);
   const total = posts.length;
@@ -523,6 +523,31 @@ function viewCategory(params){
   `;
 }
 
+/* Plain text of a post (for search) and table-of-contents builder */
+const _textCache = {};
+function postPlainText(p){
+  const key = p.id + '|' + (p.updatedAt || '');
+  if (_textCache[key] === undefined){
+    const d = document.createElement('div'); d.innerHTML = p.content || '';
+    _textCache[key] = (d.textContent || '').replace(/\s+/g,' ').toLowerCase();
+  }
+  return _textCache[key];
+}
+function postMatches(p, ql){
+  return (p.title + ' ' + (p.excerpt||'') + ' ' + (p.tags||[]).join(' ')).toLowerCase().includes(ql) || postPlainText(p).includes(ql);
+}
+function buildToc(html){
+  const d = document.createElement('div'); d.innerHTML = html || '';
+  const heads = Array.from(d.querySelectorAll('h1,h2,h3')).filter(h => h.textContent.trim());
+  if (heads.length < 3) return { html: html, toc: '' };
+  heads.forEach((h,i) => { h.id = 'sec-' + (i+1); });
+  const items = heads.map((h,i) => `<li class="toc-l${h.tagName[1]}"><a href="#" data-toc="sec-${i+1}">${escapeHtml(h.textContent.trim())}</a></li>`).join('');
+  return { html: d.innerHTML, toc: `<nav class="toc" aria-label="In this writing"><div class="toc-title">In this writing</div><ol>${items}</ol></nav>` };
+}
+function shareLinkFor(slug){
+  const ok = /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname);
+  return ok ? location.origin + '/p/' + encodeURIComponent(slug) : location.href;
+}
 function relatedPosts(post, all){
   const others = all.filter(p => p.id !== post.id);
   const scored = others.map(p => {
@@ -545,6 +570,7 @@ function viewPost(params){
   const prev = all[idx+1];
   const next = all[idx-1];
   const related = relatedPosts(post, all);
+  const tocData = buildToc(post.content);
   const showUpdated = post.updatedAt && new Date(post.updatedAt) - new Date(post.publishDate) > 1000*60*60*24;
 
   document.getElementById('doc-title').textContent = (post.seoTitle || post.title) + " — If No One Reads This";
@@ -579,7 +605,7 @@ function viewPost(params){
         <div class="ribbon-track"><div class="ribbon-fill" id="ribbon-fill"></div></div>
       </div>
       <div>
-        <div class="article-body" id="article-body" style="font-size:${post.fontSize || 19}px;">${post.content}</div>
+        ${tocData.toc}<div class="article-body" id="article-body" style="font-size:${post.fontSize || 19}px;">${tocData.html}</div>
 
         ${post.footer ? `<div class="post-footer" data-reveal>${post.footer}</div>` : ''}
 
@@ -683,6 +709,7 @@ function goWritings(overrides){
 }
 
 function wireDynamic(){
+  document.querySelectorAll('[data-toc]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); const t = document.getElementById(a.dataset.toc); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
   const searchInput = document.getElementById('writings-search');
   if (searchInput){
     let t;
@@ -755,7 +782,8 @@ function wireDynamic(){
   }
   document.querySelectorAll('[data-share]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const rawUrl = location.href;
+      const slugNow = (location.hash.match(/#\/post\/([^?]+)/)||[])[1];
+      const rawUrl = slugNow ? shareLinkFor(slugNow) : location.href;
       const url = encodeURIComponent(rawUrl);
       const rawTitle = document.querySelector('.post-hero h1')?.textContent || 'If No One Reads This';
       const title = encodeURIComponent(rawTitle);
@@ -889,7 +917,7 @@ document.addEventListener('keydown', e => {
 searchInputGlobal.addEventListener('input', () => {
   const q = searchInputGlobal.value.trim().toLowerCase();
   if (!q){ searchResults.innerHTML = ''; return; }
-  const results = CMS.getPublishedPosts().filter(p => (p.title + ' ' + p.excerpt + ' ' + (p.tags||[]).join(' ')).toLowerCase().includes(q)).slice(0,8);
+  const results = CMS.getPublishedPosts().filter(p => postMatches(p, q)).slice(0,8);
   searchResults.innerHTML = results.length
     ? results.map(p => `<a href="#/post/${p.slug}"><span class="sr-cat">${cat(p.category).name}</span><br>${p.title}</a>`).join('')
     : `<a href="#" style="pointer-events:none;color:var(--text-muted);">No writings found for "${escapeHtml(searchInputGlobal.value)}"</a>`;
