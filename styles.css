@@ -732,3 +732,13 @@ html[data-theme="dark"] .article-body [style*="2B2A28" i],
 html[data-theme="dark"] .article-body [style*="43, 42, 40"],
 html[data-theme="dark"] .post-footer [style*="2B2A28" i],
 html[data-theme="dark"] .post-footer [style*="43, 42, 40"]{ color: var(--text) !important; }
+
+/* Table of contents */
+.toc{ max-width:68ch; margin: 28px 0 0; padding: 16px 20px; border:1px solid var(--line-strong); border-radius:6px; background: var(--bg-soft); font-family: var(--sans); }
+.toc-title{ font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; }
+.toc ol{ list-style:none; margin:0; padding:0; }
+.toc li{ margin: 6px 0; font-size:15px; }
+.toc li.toc-l3{ padding-left:18px; }
+.toc a{ color:var(--text); text-decoration:none; border-bottom:1px solid transparent; }
+.toc a:hover{ border-bottom-color: var(--accent-2); }
+.article-body h1, .article-body h2, .article-body h3{ scroll-margin-top: 90px; }
