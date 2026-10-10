@@ -3,5 +3,18 @@
   "outputDirectory": ".",
   "cleanUrls": false,
   "trailingSlash": false,
-  "rewrites": [{ "source": "/feed.xml", "destination": "/api/feed" }]
+  "rewrites": [
+    {
+      "source": "/feed.xml",
+      "destination": "/api/feed"
+    },
+    {
+      "source": "/p/:slug",
+      "destination": "/api/post?slug=:slug"
+    },
+    {
+      "source": "/og/:slug",
+      "destination": "/api/post?slug=:slug&img=1"
+    }
+  ]
 }
