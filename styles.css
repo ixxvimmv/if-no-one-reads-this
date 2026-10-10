@@ -723,3 +723,12 @@ ul{ margin:0; padding:0; list-style:none; }
 
 /* ============ MAGNETIC HOVER (buttons) ============ */
 .btn, .icon-btn{ will-change: transform; }
+
+/* Dark mode: baked-in dark editor text colors must stay readable */
+html[data-theme="dark"] .article-body,
+html[data-theme="dark"] .post-footer,
+html[data-theme="dark"] .prose{ color: var(--text); }
+html[data-theme="dark"] .article-body [style*="2B2A28" i],
+html[data-theme="dark"] .article-body [style*="43, 42, 40"],
+html[data-theme="dark"] .post-footer [style*="2B2A28" i],
+html[data-theme="dark"] .post-footer [style*="43, 42, 40"]{ color: var(--text) !important; }
