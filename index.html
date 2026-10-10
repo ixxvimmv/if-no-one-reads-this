@@ -28,6 +28,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="alternate" type="application/rss+xml" title="If No One Reads This" href="/feed.xml">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%238B6F47'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='15' font-weight='600' fill='white' text-anchor='middle'%3EIN%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -245,6 +246,24 @@ function fixInlineTextColors(){
     el.style.color = (dark && isDark) ? 'var(--text)' : el.dataset.origColor;
   });
 }
+/* Optional GoatCounter analytics (set in Admin → Settings). Counts each hash-route view. */
+let _gcLoaded = false;
+function trackPageview(){
+  const code = (CMS.getSettings().analyticsCode || '').trim();
+  if (!code || !/^[a-z0-9-]+$/.test(code)) return;
+  if (location.hostname === 'localhost' || location.protocol === 'file:') return;
+  const path = (location.hash.replace(/^#/, '') || '/');
+  if (!_gcLoaded){
+    window.goatcounter = { no_onload: true, endpoint: 'https://' + code + '.goatcounter.com/count' };
+    const s = document.createElement('script');
+    s.async = true; s.src = 'https://gc.zgo.at/count.js';
+    s.onload = () => { try { window.goatcounter.count({ path, title: document.title }); } catch(e){} };
+    document.head.appendChild(s);
+    _gcLoaded = true;
+  } else if (window.goatcounter && window.goatcounter.count){
+    try { window.goatcounter.count({ path, title: document.title }); } catch(e){}
+  }
+}
 function render(){
   const full = location.hash.replace(/^#/, '') || '/';
   const hash = full.split('?')[0] || '/';
@@ -264,6 +283,7 @@ function render(){
   setupReveal();
   updateTopThread();
   fixInlineTextColors();
+  trackPageview();
   document.getElementById('nav-links').classList.remove('open');
   document.getElementById('menu-toggle').setAttribute('aria-expanded','false');
 }
