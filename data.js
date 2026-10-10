@@ -43,6 +43,8 @@ const GITHUB_SYNC = {
     media: "inrt_media",
     auth: "inrt_auth_password",
     authUser: "inrt_auth_username",
+    authSalt: "inrt_auth_salt",
+    authHash: "inrt_auth_hash",
     seeded: "inrt_seeded_v1",
     views: "inrt_views_log",
     settings: "inrt_settings",
@@ -290,7 +292,6 @@ const GITHUB_SYNC = {
     writeJSON(LS.posts, DEFAULT_POSTS);
     writeJSON(LS.media, []);
     localStorage.setItem(LS.authUser, "ixxvimmv");
-    localStorage.setItem(LS.auth, "karyzza0126!");
     writeJSON(LS.seeded, true);
   }
 
@@ -299,8 +300,22 @@ const GITHUB_SYNC = {
   function migrateCredentialsOnce() {
     if (readJSON(CREDS_MIGRATION_KEY, false)) return;
     localStorage.setItem(LS.authUser, "ixxvimmv");
-    localStorage.setItem(LS.auth, "karyzza0126!");
+    localStorage.removeItem(LS.auth);
     writeJSON(CREDS_MIGRATION_KEY, true);
+  }
+
+  const DEFAULT_USER = "ixxvimmv";
+  const DEFAULT_SALT = "inrt-v3-7b32755b9054cb20";
+  const DEFAULT_HASH = "5825356eaa31159f5f36bb34b88687c752702f44e7a01d4d1ac1056f4c402fa1";
+  function newSalt() {
+    const a = new Uint8Array(8); crypto.getRandomValues(a);
+    return "inrt-v3-" + Array.from(a).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  async function hashPassword(pw, salt) {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: enc.encode(salt), iterations: 100000, hash: "SHA-256" }, key, 256);
+    return Array.from(new Uint8Array(bits)).map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   const CMS = {
@@ -531,14 +546,40 @@ const GITHUB_SYNC = {
     },
 
     /* ---- auth ---- */
-    login(username, password) {
-      const realUser = localStorage.getItem(LS.authUser) || "ixxvimmv";
-      const realPass = localStorage.getItem(LS.auth) || "karyzza0126!";
-      if (username === realUser && password === realPass) {
+    async login(username, password) {
+      /* Passwords are never stored or shipped as plain text: only a salted PBKDF2 hash. */
+      const lockUntil = Number(sessionStorage.getItem("inrt_lock_until") || 0);
+      if (Date.now() < lockUntil) return false;
+      const realUser = localStorage.getItem(LS.authUser) || DEFAULT_USER;
+      let salt = localStorage.getItem(LS.authSalt) || DEFAULT_SALT;
+      let hash = localStorage.getItem(LS.authHash) || DEFAULT_HASH;
+      let ok = false;
+      try {
+        if (username === realUser) {
+          ok = (await hashPassword(password, salt)) === hash;
+          /* one-time upgrade of an older plain-text password saved in this browser */
+          const legacy = localStorage.getItem(LS.auth);
+          if (!ok && legacy && password === legacy) {
+            ok = true;
+            const s = newSalt();
+            localStorage.setItem(LS.authSalt, s);
+            localStorage.setItem(LS.authHash, await hashPassword(password, s));
+          }
+          if (ok) localStorage.removeItem(LS.auth);
+        }
+      } catch (e) { ok = false; }
+      if (ok) {
+        sessionStorage.removeItem("inrt_fail_count");
         sessionStorage.setItem(SESSION_KEY, "1");
         return true;
       }
+      const fails = Number(sessionStorage.getItem("inrt_fail_count") || 0) + 1;
+      sessionStorage.setItem("inrt_fail_count", String(fails));
+      if (fails >= 5) { sessionStorage.setItem("inrt_lock_until", String(Date.now() + 30000)); sessionStorage.setItem("inrt_fail_count", "0"); }
       return false;
+    },
+    isLockedOut() {
+      return Date.now() < Number(sessionStorage.getItem("inrt_lock_until") || 0);
     },
     logout() {
       sessionStorage.removeItem(SESSION_KEY);
@@ -552,8 +593,11 @@ const GITHUB_SYNC = {
     changeUsername(newUser) {
       localStorage.setItem(LS.authUser, newUser);
     },
-    changePassword(newPass) {
-      localStorage.setItem(LS.auth, newPass);
+    async changePassword(newPass) {
+      const s = newSalt();
+      localStorage.setItem(LS.authSalt, s);
+      localStorage.setItem(LS.authHash, await hashPassword(newPass, s));
+      localStorage.removeItem(LS.auth);
     },
     /* Persistent (not session-based) flag set the first time you log in
        successfully on a given browser. Lets the public site show the
@@ -651,6 +695,7 @@ const GITHUB_SYNC = {
           { title: "Room for you in it", description: "The most personal writing is often the most shareable. I try to leave space for your own story inside mine." },
         ],
         socialImageUrl: "",
+        analyticsCode: "",
       };
       return Object.assign({}, defaults, readJSON(LS.settings, {}));
     },
