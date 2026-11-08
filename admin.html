@@ -688,7 +688,7 @@ function viewWritingEditor(params){
   if (isEdit && !post) return `<div class="admin-empty">Writing not found. <a href="#/writings">Back to writings</a></div>`;
   const cats = CMS.getCategories();
   const tags = CMS.getTags();
-  const p = post || { title:'', subtitle:'', content:'', footer:'', category: cats[0]?.slug || '', tags:[], coverImage:'', status:'draft', featured:false, seoTitle:'', metaDescription:'', slug:'', publishDate:'', fontSize:19, cardColor:'' };
+  const p = post || { title:'', subtitle:'', content:'', footer:'', category: cats[0]?.slug || '', tags:[], coverImage:'', coverAlt:'', status:'draft', featured:false, seoTitle:'', metaDescription:'', slug:'', publishDate:'', fontSize:19, cardColor:'' };
 
   const isArchived = isEdit && computeStatus(p) === 'archived';
 
@@ -769,6 +769,8 @@ function viewWritingEditor(params){
               <button type="button" class="btn ghost small" id="choose-cover-btn" style="flex:1;justify-content:center;">Choose image</button>
               <button type="button" class="btn ghost small" id="remove-cover-btn" style="flex:1;justify-content:center;${p.coverImage ? '' : 'display:none;'}">Remove cover image</button>
             </div>
+            <label class="field-label" for="f-cover-alt" style="margin-top:12px;">Cover image description <span style="font-weight:400;color:var(--text-faint);">(for screen readers)</span></label>
+            <input class="field-input" id="f-cover-alt" value="${escapeHtml(p.coverAlt || '')}" placeholder="e.g. A window with morning light on a desk">
           </div>
         </div>
         <div class="field-group">
@@ -924,6 +926,7 @@ function wireWritingEditor(params){
       seoTitle: document.getElementById('f-seo-title').value.trim(),
       metaDescription: document.getElementById('f-meta-desc').value.trim(),
       coverImage: document.getElementById('f-cover').value,
+      coverAlt: document.getElementById('f-cover-alt').value.trim(),
       category: document.getElementById('f-category').value,
       tags: selectedTags,
       publishDate: document.getElementById('f-pubdate').value ? new Date(document.getElementById('f-pubdate').value).toISOString() : new Date().toISOString(),
