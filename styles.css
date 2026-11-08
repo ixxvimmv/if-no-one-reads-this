@@ -127,9 +127,14 @@ ul{ margin:0; padding:0; list-style:none; }
   .nav-links{
     position: fixed; inset: 68px 0 0 0; background: var(--bg); flex-direction:column;
     align-items:flex-start; padding: 30px 28px; gap: 22px; transform: translateX(100%);
-    transition: transform .3s ease; border-top: 1px solid var(--line);
+    transition: transform .3s ease, visibility 0s linear .3s; border-top: 1px solid var(--line);
+    visibility: hidden; /* closed menu: not focusable or readable by screen readers */
   }
-  .nav-links.open{ transform: translateX(0); }
+  .nav-links.open{ transform: translateX(0); visibility: visible; transition: transform .3s ease, visibility 0s; }
+  /* backdrop-filter turns the header into the containing block of its "fixed" menu, which squashed
+     the open menu to ~60px tall (links spilled over the page, no background) and let the closed
+     menu widen the page sideways. Without it the menu is the full-height panel it was meant to be. */
+  .site-header{ backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--bg); }
   .nav-links a{ font-size: 18px; }
   .nav-toggle{ display:flex; }
 }

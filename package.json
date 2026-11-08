@@ -2,11 +2,17 @@
   "name": "if-no-one-reads-this",
   "version": "1.0.0",
   "private": true,
-  "description": "Static personal writing blog. No build step.",
+  "description": "Static personal writing blog. Content lives in content.json; scripts/build-site.js generates the static pages.",
   "scripts": {
     "lint": "echo \"Static site: nothing to lint\"",
     "typecheck": "echo \"Static site: no TypeScript to check\"",
-    "test": "echo \"No tests\""
+    "test": "echo \"No tests\"",
+    "build": "node scripts/build-site.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.0"
+  }
 }
