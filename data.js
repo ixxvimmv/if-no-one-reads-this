@@ -762,10 +762,13 @@ const GITHUB_SYNC = {
       writeJSON(LS.githubSync, updated);
       return updated;
     },
+    /* The repo (and therefore content.json) is PUBLIC, so only posts that are
+       meant to be public are ever sent to it. Drafts and archived posts stay
+       in this browser's localStorage only — they never reach GitHub. */
     getSyncPayload() {
       return {
         exportedAt: nowIso(),
-        posts: this.getAllPosts(),
+        posts: this.getAllPosts().filter((p) => p.status === "published"),
         categories: this.getCategories(),
         tags: this.getTags(),
         settings: this.getSettings(),
@@ -784,8 +787,15 @@ const GITHUB_SYNC = {
         let changed = false;
         const currentPosts = JSON.stringify(this.getAllPosts());
         if (Array.isArray(data.posts)) {
-          writeJSON(LS.posts, data.posts);
-          if (JSON.stringify(data.posts) !== currentPosts) changed = true;
+          /* Remote content.json only contains published posts, so keep any
+             local-only drafts/archived posts instead of wiping them. */
+          const remoteIds = new Set(data.posts.map((p) => p.id));
+          const localOnlyUnpublished = this.getAllPosts().filter(
+            (p) => p.status !== "published" && !remoteIds.has(p.id)
+          );
+          const merged = data.posts.concat(localOnlyUnpublished);
+          writeJSON(LS.posts, merged);
+          if (JSON.stringify(merged) !== currentPosts) changed = true;
         }
         if (Array.isArray(data.categories)) writeJSON(LS.categories, data.categories);
         if (Array.isArray(data.tags)) writeJSON(LS.tags, data.tags);
